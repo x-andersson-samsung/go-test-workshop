@@ -1,0 +1,871 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Title</title>
+    <meta charset="utf-8">
+    <style>
+        @import url(https://fonts.googleapis.com/css?family=Yanone+Kaffeesatz);
+        @import url(https://fonts.googleapis.com/css?family=Droid+Serif:400,700,400italic);
+        @import url(https://fonts.googleapis.com/css?family=Ubuntu+Mono:400,700,400italic);
+
+        body {
+            font-family: 'Droid Serif';
+        }
+
+        h1, h2, h3 {
+            font-family: 'Yanone Kaffeesatz';
+            font-weight: normal;
+        }
+
+        .remark-code, .remark-inline-code {
+            font-family: 'Ubuntu Mono';
+        }
+
+        img[alt=drawing] {
+            width: 75%;
+        }
+    </style>
+</head>
+<body>
+<textarea id="source">
+
+class: center, middle
+
+# Go Testing
+
+---
+
+# Agenda
+
+1. Introduction
+2. Testing fundamentals
+3. Naming and structure
+4. Coverage
+5. Mocks and Dependency Isolation
+6. Benchmarking, Concurrency, and Integration
+7. Test Frameworks and Best Practices
+
+---
+
+# Introduction
+
+Who am I?
+
+---
+
+# Why Test?
+
+- Catch bugs early
+- Document code behavior
+- Enable safe refactoring
+- Improve code design
+- Provide confidence in changes
+
+---
+
+# Fundamentals
+
+- Go has a built-in testing framework we can use with the `go test` command.
+- Test files must end with `_test.go`
+- Test functions must start with `Test*` and have the same signature `func(t *testing.T)`
+
+---
+
+# `go test`
+
+- `go test -v` - runs tests in verbose mode
+- `go test ./...` - runs all tests in the current directory and all subdirectories
+- `go test ./module/...` - runs all tests in `module` and its subdirectories
+- `go test -run Add` - runs all tests that contain the string `Add` in their name
+
+---
+
+# `testing.T`
+
+- [Documentation](https://pkg.go.dev/testing)
+- Provides a number of methods for managing tests
+
+```go
+    func TestUserValidation(t *testing.T) {
+        user := User{ Email: "invalid-email", Age: 15}
+
+        err := user.Validate()
+        if err == nil {
+            t.Error("expected validation error for invalid email")
+        }
+
+        if !strings.Contains(err.Error(), "email") {
+            t.Errorf("expected error about email, got: %v", err)
+        }
+    }
+```
+
+---
+
+# `testing.T` - logs
+
+- `t.Log` - prints a message
+- `t.Error` - prints an error message and fails the test
+- `t.Fatal` - prints an error message and stops the test run
+
+
+- Functions also have a `f` variant that accepts format strings and arguments
+
+```go
+    func TestAdd(t *testing.T) {
+        t.Log("Add(1, 2) =", Add(1, 2))
+        t.Error("Error message")
+        t.Fatal("Fatal message")
+        t.Log("Will not be printed")
+    }
+```
+```
+    === RUN   TestAdd
+        struct_test.go:33: Add(1, 2) = 3
+        struct_test.go:34: Error message
+        struct_test.go:35: Fatal message
+    --- FAIL: TestAdd (0.00s)
+```
+
+---
+
+# `testing.T` - flow control
+
+- `t.SkipNow` - skips the test and stops the test run
+- `t.Skip` - logs a message and then stops the test run
+- `t.Run` - runs a subtest
+- `t.Fail` - fails the test
+- `t.FailNow` - fails the test and stops the test run
+
+```go
+    func TestAdd(t *testing.T) {
+        t.Run("ok", func(t *testing.T) {
+            t.Log("ok")
+        }
+        t.Run("skip", func(t *testing.T) {
+            t.Skip("skipped")
+        }
+    }
+```
+```
+    === RUN   TestAdd
+    === RUN   TestAdd/ok
+        struct_test.go:34: ok
+    --- PASS: TestAdd/ok (0.00s)
+    === RUN   TestAdd/skip
+        struct_test.go:37: skipped
+    --- SKIP: TestAdd/skip (0.00s)
+```
+
+---
+
+# `testing.T` - advanced
+
+- `t.Helper` - marks a function as a helper function
+- `t.Context` - returns a context that will cancel just before cleanup function
+- `t.Cleanup` - registers a function that will be called after the test
+- `t.TempDir` - creates a temporary directory that will be removed after the test
+- `t.Parallel` - runs the test in parallel with other tests
+
+---
+
+# Test Driven Development
+
+from [Wikipedia](https://en.wikipedia.org/wiki/Test-driven_development)
+
+```
+    Test-driven development (TDD) is a way of writing code that involves
+    writing an automated unit-level test case that fails,
+    then writing just enough code to make the test pass,
+    then refactoring both the test code and the production code,
+    then repeating with another new test case.
+```
+
+---
+
+# Test Driven Development
+
+1. List scenarios
+2. Write tests for the scenarios
+3. Write just enough code to make the tests pass
+4. Refactor the code
+5. Repeat
+
+
+In short:
+
+![drawing](tdd.png)
+
+---
+
+# Exercise: Calculator
+
+1. Write a test for a `Calculator` struct with `Sub` and `Div` methods
+2. Run the tests (it should fail)
+3. Implement the functions
+4. Run the tests again (it should pass)
+5. Refactor if needed
+
+---
+
+# Common Testing Mistakes
+### Testing implementation instead of behavior
+
+```go
+func TestUserService_CreateUser(t *testing.T) {
+    service := NewUserService()
+    user := User{Name: "John"}
+
+    service.CreateUser(user)
+
+    // Testing implementation details
+    if service.userValidator.validateNameCalls != 1 {
+        t.Error("should call name validator exactly once")
+    }
+}
+```
+
+---
+
+# Common Testing Mistakes
+### Testing implementation instead of behavior
+
+```go
+func TestUserService_CreateUser(t *testing.T) {
+    service := NewUserService()
+    user := User{Name: "John"}
+
+    // Testing behavior/outcome
+    result, err := service.CreateUser(user)
+    if err != nil {
+        t.Errorf("expected no error, got %v", err)
+    }
+    if result.Name != "John" {
+        t.Errorf("expected name 'John', got %s", result.Name)
+    }
+
+}
+```
+
+Focus on testing what the code does (its behavior/output) rather than how it does it (implementation details).
+
+Implementation details can change without affecting the behavior, and testing them makes tests fragile.
+
+---
+
+# Common Testing Mistakes
+### Brittle Tests (Too Specific)
+
+
+```go
+func TestGenerateReport(t *testing.T) {
+    report := GenerateReport()
+
+    // Too specific, will break if format changes slightly
+    expected := "Report generated on 2025-07-16 14:30:00\nTotal items: 5\n"
+    if report != expected {
+        t.Errorf("got %q, want %q", report, expected)
+    }
+}
+```
+
+---
+
+# Common Testing Mistakes
+### Brittle Tests (Too Specific)
+
+
+```go
+func TestGenerateReport(t *testing.T) {
+    report := GenerateReport()
+
+    // Tests important aspects without being too rigid
+    if !strings.Contains(report, "Total items:") {
+        t.Error("report should contain item count")
+    }
+    if !strings.Contains(report, "Report generated on") {
+        t.Error("report should contain generation timestamp")
+    }
+}
+```
+
+Avoid writing tests that are unnecessarily strict about exact formats or implementation details.
+
+Tests should be resilient to minor, non-functional changes.
+
+---
+
+# Common Testing Mistakes
+### Missing edge cases
+
+
+```go
+func TestDiv(t *testing.T) {
+    // Only testing the happy path
+    result := Div(10, 2)
+    if result != 5 {
+        t.Errorf("expected 5, got %v", result)
+    }
+}
+
+```
+
+---
+
+# Common Testing Mistakes
+### Missing edge cases
+
+
+```go
+func TestDiv(t *testing.T) {
+    tests := []struct {
+        name     string
+        a, b     float64
+        want     float64
+        wantErr  bool
+    }{
+        {"normal division", 10, 2, 5, false},
+        {"zero division", 1, 0, 0, true},
+        {"negative numbers", -10, -2, 5, false},
+        {"very large numbers", 1e308, 2, 5e307, false},
+    }
+    // ... test implementation
+}
+
+```
+
+Always consider boundary conditions, special cases, and error scenarios. Missing edge cases can lead to production bugs.
+
+---
+
+# Common Testing Mistakes
+### Non-descriptive error messages
+
+
+```go
+func TestValidateEmail(t *testing.T) {
+    if !ValidateEmail("test@example.com") {
+        t.Error("test failed") // Unclear what went wrong
+    }
+}
+```
+
+---
+
+# Common Testing Mistakes
+### Non-descriptive error messages
+
+
+```go
+func TestValidateEmail(t *testing.T) {
+    email := "test@example.com"
+    if !ValidateEmail(email) {
+        t.Errorf("ValidateEmail(%q) = false; want true", email)
+    }
+}
+
+```
+
+Error messages should clearly indicate what went wrong, what was expected, and what actually happened. This helps tremendously when debugging test failures.
+
+---
+
+# Common Testing Mistakes
+### Testing multiple things in one test
+
+
+```go
+func TestUser(t *testing.T) {
+    user := NewUser("John", "john@example.com", 25)
+
+    // Testing multiple unrelated things
+    if !user.IsValid() {
+        t.Error("user should be valid")
+    }
+    if user.CanDrive() {
+        t.Error("user shouldn't be able to drive")
+    }
+    if user.GetFullName() != "John Doe" {
+        t.Error("incorrect full name")
+    }
+}
+```
+
+---
+
+# Common Testing Mistakes
+### Testing multiple things in one test
+
+
+```go
+func TestUser_Validation(t *testing.T) {
+    user := NewUser("John", "john@example.com", 25)
+    if !user.IsValid() {
+        t.Error("user should be valid")
+    }
+}
+
+func TestUser_DrivingPrivileges(t *testing.T) {
+    user := NewUser("John", "john@example.com", 15)
+    if user.CanDrive() {
+        t.Error("user under 16 shouldn't be able to drive")
+    }
+}
+
+func TestUser_FullName(t *testing.T) {
+    user := NewUser("John", "john@example.com", 25)
+    if user.GetFullName() != "John Doe" {
+        t.Errorf("got %q, want 'John Doe'", user.GetFullName())
+    }
+}
+```
+
+Each test should verify one logical concept.
+
+---
+
+# Testing Best Practices
+
+- One logical assertion per test
+- Use meaningful test names
+- Follow the AAA pattern:
+  - Arrange (setup)
+  - Act (execute)
+  - Assert (verify)
+- Keep tests simple and readable
+
+---
+
+# Part 2: Test Structure
+
+In this section:
+- Table-Driven Tests
+- Test Helper Functions
+- Structured Tests with t.Run
+- Best Practices
+
+---
+
+# Table-Driven Tests
+
+## Why Use Table-Driven Tests?
+- Test multiple scenarios efficiently
+- Consistent test structure
+- Easy to add new test cases
+- Clear overview of test coverage
+
+---
+
+```go
+func TestAbs(t *testing.T) {
+    tests := []struct {
+        name     string
+        input    int
+        want     int
+    }{
+        {
+            name:    "positive",
+            input:   1,
+            want:    1,
+        }, {
+            name:    "zero",
+            input:   0,
+            want:    0,
+        }, {
+            name:    "negative",
+            input:   -1,
+            want:    1,
+        },
+    }
+    for _, tt := range tests {
+        t.Run(tt.name, func(t *testing.T) {
+            got := Abs(tt.input)
+            if got != tt.want {
+                t.Errorf("Abs(%d) = %d, want %d", tt.input, got, tt.want)
+            }
+        })
+    }
+}
+```
+
+---
+
+```go
+// Example: map instead of array
+func TestCalculate(t *testing.T) {
+    tests := map[string]struct {
+        input    string
+        want     int
+        wantErr  bool
+    }{
+        "two_numbers": {
+            input:   "1,2",
+            want:    3,
+            wantErr: false,
+        },
+        "invalid_input": {
+            input:   "1,a",
+            want:    0,
+            wantErr: true,
+        },
+    }
+    for name, tt := range tests {
+        t.Run(name, func(t *testing.T) {
+            got, err := Calculate(tt.input)
+            if (err != nil) != tt.wantErr {
+                t.Errorf("Calculate() error = %v, wantErr %v", err, tt.wantErr)
+                return
+            }
+            if got != tt.want {
+                t.Errorf("Calculate() = %v, want %v", got, tt.want)
+            }
+        })
+    }
+}
+```
+
+---
+
+# Traditional vs Table-Driven
+
+Traditional:
+```go
+func TestAbs_Positive(t *testing.T) { ... }
+func TestAbs_Negative(t *testing.T) { ... }
+func TestAbs_Zero(t *testing.T) { ... }
+```
+
+Table-Driven:
+```go
+func TestAbs(t *testing.T) {
+    tests := []struct{ ... }
+    for _, tt := range tests {
+        t.Run(tt.name, func(t *testing.T) { ... })
+    }
+}
+```
+
+---
+
+# Table-Driven Tests - Best Practice
+
+- Use descriptive test case names
+- Keep test cases sorted logically
+- Include edge cases
+- Use consistent structure
+- Consider using subtests (t.Run) for more complex scenarios
+
+---
+
+# Table-Driven Tests - When To Use
+
+- String formatting functions
+- Validation rules
+- Calculation functions
+- Parsing functions
+- API endpoint responses
+
+---
+
+# Test Helper Functions
+
+- Reduce code duplication
+- Improve test readability
+- Consistent error reporting
+- Reusable test utilities
+
+```go
+func assertUserValid(t *testing.T, user User) {
+    t.Helper() // Marks the function as a helper function
+    if user.Email == "" {
+        t.Error("email is empty")
+    }
+    if user.Age < 18 {
+        t.Error("user is too young")
+    }
+}
+
+func TestUser_Get(t *testing.T) {
+    srv := NewUserService()
+    user := srv.Get(1)
+    assertUserValid(t, user)
+}
+
+func TestUser_Get(t *testing.T) {
+    users := srv.List()
+    for _, user := range users {
+        assertUserValid(t, user)
+    }
+}
+```
+
+---
+
+# Structured Tests with t.Run
+
+Benefits:
+- Organize related tests
+- Run specific subtests
+- Better test output
+- Parallel execution support
+
+```go
+func TestUserService_Create(t *testing.T) {
+    // Common setup
+    service := NewUserService()
+
+    // Grouped tests
+    t.Run("ok", func(t *testing.T) {
+        t.Run("ok_1", func(t *testing.T) {})
+
+        t.Run("ok_2", func(t *testing.T) {})
+    })
+
+    t.Run("error", func(t *testing.T) {
+        t.Run("no_email", func(t *testing.T) {})
+
+        t.Run("too_young", func(t *testing.T) {})
+    })
+}
+
+```
+
+---
+
+# Structured Tests with Setup/Teardown
+
+```go
+func TestDatabase(t *testing.T) {
+    // Common setup
+    db := setupTestDB(t)
+    t.Cleanup(func() { db.Close() })
+
+    t.Run("insert", func(t *testing.T) {
+        // Test-specific setup
+        user := createTestUser(t)
+
+        // Test logic
+        err := db.Insert(user)
+        if err != nil {
+            t.Errorf("failed to insert: %v", err)
+        }
+    })
+}
+```
+
+---
+
+# Choosing Test Structure
+
+Table-Driven Tests:
+    ✓ Simple, repetitive test cases
+    ✓ Same setup for all cases
+    ✓ Testing different inputs/outputs
+
+
+Structured Tests:
+    ✓ Complex setup/teardown
+    ✓ Different setup per test
+    ✓ Testing different behaviors
+
+---
+
+# Exercise: Email Validator
+
+Create a test suite for an email validator with these requirements:
+
+1. Valid email formats:
+   - user@domain.com
+   - user.name@domain.com
+   - user+tag@domain.com
+
+2. Invalid cases:
+   - Empty string
+   - Missing @
+   - Missing domain
+   - Multiple @
+   - Invalid characters
+
+Tasks:
+1. Write table-driven or structured tests
+2. Create helper functions
+3. Add error messages
+
+---
+
+# Part 3: Test Organization and Coverage
+
+## Agenda
+- Test Package Organization
+- Code Coverage Tools
+- Coverage Analysis
+- Test Refactoring Techniques
+
+---
+
+# Test Package Organization
+
+## Internal vs External Tests
+
+1. Same package (internal): `package mypackage`
+   - Access to unexported identifiers
+   - Testing implementation details
+   - Unit tests of internal behavior
+
+2. Separate package (external): `package mypackage_test`
+   - Only access to exported identifiers
+   - Testing public API
+   - Integration tests
+
+---
+
+# Test File Organization
+
+Common patterns:
+1. One test file per source file
+   - `user.go` → `user_test.go`
+   - Clear mapping between source and tests
+
+2. Feature-based organization
+   - `user_creation_test.go`
+   - `user_validation_test.go`
+   - Better for complex features
+
+3. Test type separation
+   - `user_unit_test.go`
+   - `user_integration_test.go`
+
+---
+
+# Code coverage
+
+- `go test -cover` - runs tests and shows coverage
+- `go test -coverprofile=coverage.out` - runs tests and saves coverage to a file
+- `go tool cover -func=coverage.out` - shows coverage summary
+- `go tool cover -html=coverage.out -o coverage.html` - shows coverage in a browser
+
+---
+
+# Coverage HTML View (example)
+
+![drawing](coverage.png)
+
+- Green: Covered lines
+- Red: Uncovered lines
+- Gray: Non-executable lines
+    
+---
+
+# Coverage Best Practices
+
+1. Don't aim for 100%
+   - Diminishing returns
+   - Some code isn't worth testing
+   - Focus on critical paths
+
+2. Coverage Targets
+   - Business logic: 70-90%
+   - Data models: 60-70%
+   - Generated code: 0%
+
+3. Quality over Quantity
+   - Meaningful assertions
+   - Edge cases
+   - Error conditions
+
+---
+
+# Test Build Tags
+
+Go allows us to use build tags to conditionally compile code based on build tags.
+
+See examples/buildTag
+
+Use cases:
+- Separate unit and integration tests
+- Environment-specific tests
+- Long-running tests
+
+---
+
+# Exercise: Coverage Analysis and Improvement
+
+You'll work with a `userservice` package that handles user operations. Your task is to analyze the coverage and improve it.
+
+Initial code in `exercise3/userservice/user.go`:
+
+---
+
+## Exercise tasks:
+
+1. Run the coverage analysis:
+   ```bash
+    go test -coverprofile=coverage.out ./...
+    go tool cover -func=coverage.out
+    go tool cover -html=coverage.out
+   ```
+
+2. Identify untested code paths:
+   - Which methods need more test coverage?
+   - What edge cases are missing?
+   - Are there error conditions not being tested?
+
+3. Improve the test coverage:
+   - Add tests for Update and Delete methods
+   - Add tests for error conditions
+   - Test edge cases (empty values, invalid inputs)
+   - Use table-driven tests where appropriate
+
+---
+
+# Common Coverage Pitfalls
+
+1. Coverage != Quality
+   ```go
+   func TestAdd(t *testing.T) {
+       Add(1, 2) // 100% coverage, no assertions!
+   }
+   ```
+
+2. Missing Error Paths
+   ```go
+   // Only testing success path
+   result, _ := Process(input)
+   if result != expected {
+       t.Error("wrong result")
+   }
+   ```
+
+3. Focusing on Numbers
+   - High coverage with weak assertions
+   - Missing edge cases
+   - No negative tests
+
+---
+
+
+    To process
+    - `go test -bench .` - runs benchmarks
+    - `go test -benchmem` - runs benchmarks and shows memory usage
+    - `go test -benchtime 10s` - runs benchmarks for 10 seconds
+    - `go test -bench . -benchmem -benchtime 10s` - runs benchmarks and shows memory usage for 10 seconds
+    - `go test -race` - runs tests with race detector
+    - `go test -short` - runs tests that are short (less than 10 seconds)
+| Command | Description |
+|---------|-------------|
+| `go test` | Run tests in current package |
+| `go test -v` | Verbose output |
+| `go test -run=^TestXxx$` | Run specific test |
+| `go test -count=1` | Disable test caching |
+| `go test -race` | Test for race conditions |
+
+
+
+    </textarea>
+<script src="https://remarkjs.com/downloads/remark-latest.min.js">
+</script>
+<script>
+    var slideshow = remark.create();
+</script>
+</body>
+</html>
