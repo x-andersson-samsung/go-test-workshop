@@ -68,6 +68,9 @@ Who am I?
 - Go has a built-in testing framework we can use with the `go test` command.
 - Test files must end with `_test.go`
 - Test functions must start with `Test*` and have the same signature `func(t *testing.T)`
+- Test names should be:
+	- TestFuncName for functions (f.ex TestValidateEmail)
+	- TestStruct_Method for methods (f.ex TestValidator_Email)
 
 ---
 
@@ -212,6 +215,7 @@ In short:
 ### Testing implementation instead of behavior
 
 ```go
+// Bad
 func TestUserService_CreateUser(t *testing.T) {
     service := NewUserService()
     user := User{Name: "John"}
@@ -231,6 +235,7 @@ func TestUserService_CreateUser(t *testing.T) {
 ### Testing implementation instead of behavior
 
 ```go
+// Better
 func TestUserService_CreateUser(t *testing.T) {
     service := NewUserService()
     user := User{Name: "John"}
@@ -258,6 +263,7 @@ Implementation details can change without affecting the behavior, and testing th
 
 
 ```go
+// Bad
 func TestGenerateReport(t *testing.T) {
     report := GenerateReport()
 
@@ -276,6 +282,7 @@ func TestGenerateReport(t *testing.T) {
 
 
 ```go
+// Better
 func TestGenerateReport(t *testing.T) {
     report := GenerateReport()
 
@@ -300,6 +307,7 @@ Tests should be resilient to minor, non-functional changes.
 
 
 ```go
+// Bad
 func TestDiv(t *testing.T) {
     // Only testing the happy path
     result := Div(10, 2)
@@ -317,6 +325,7 @@ func TestDiv(t *testing.T) {
 
 
 ```go
+// Better
 func TestDiv(t *testing.T) {
     tests := []struct {
         name     string
@@ -343,6 +352,7 @@ Always consider boundary conditions, special cases, and error scenarios. Missing
 
 
 ```go
+// Bad
 func TestValidateEmail(t *testing.T) {
     if !ValidateEmail("test@example.com") {
         t.Error("test failed") // Unclear what went wrong
@@ -357,6 +367,7 @@ func TestValidateEmail(t *testing.T) {
 
 
 ```go
+// Better
 func TestValidateEmail(t *testing.T) {
     email := "test@example.com"
     if !ValidateEmail(email) {
@@ -375,6 +386,7 @@ Error messages should clearly indicate what went wrong, what was expected, and w
 
 
 ```go
+// Bad
 func TestUser(t *testing.T) {
     user := NewUser("John", "john@example.com", 25)
 
@@ -398,6 +410,7 @@ func TestUser(t *testing.T) {
 
 
 ```go
+// Better
 func TestUser_Validation(t *testing.T) {
     user := NewUser("John", "john@example.com", 25)
     if !user.IsValid() {
@@ -557,13 +570,19 @@ func TestAbs(t *testing.T) {
 
 ---
 
-# Table-Driven Tests - When To Use
+# Table-Driven Tests
+
+### When to Use
 
 - String formatting functions
 - Validation rules
 - Calculation functions
 - Parsing functions
 - API endpoint responses
+
+### When not to Use
+
+# TODO: Add
 
 ---
 
@@ -580,7 +599,7 @@ func assertUserValid(t *testing.T, user User) {
     if user.Email == "" {
         t.Error("email is empty")
     }
-    if user.Age < 18 {
+    if user.Age &lt; 18 {
         t.Error("user is too young")
     }
 }
@@ -658,15 +677,15 @@ func TestDatabase(t *testing.T) {
 # Choosing Test Structure
 
 Table-Driven Tests:
-    ✓ Simple, repetitive test cases
-    ✓ Same setup for all cases
-    ✓ Testing different inputs/outputs
+	- Simple, repetitive test cases
+	- Same setup for all cases
+	- Testing different inputs/outputs
 
 
 Structured Tests:
-    ✓ Complex setup/teardown
-    ✓ Different setup per test
-    ✓ Testing different behaviors
+	- Complex setup/teardown
+	- Different setup per test
+	- Testing different behaviors
 
 ---
 
@@ -678,11 +697,13 @@ Create a test suite for an email validator with these requirements:
    - user@domain.com
    - user.name@domain.com
    - user+tag@domain.com
+   - user.name+tag@domain.com
 
 2. Invalid cases:
    - Empty string
    - Missing @
    - Missing domain
+   - Missing name
    - Multiple @
    - Invalid characters
 
