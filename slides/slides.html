@@ -864,6 +864,77 @@ Initial code in `exercise3/userservice/user.go`:
 
 ---
 
+# Part 4: Mocks and Dependency Isolation
+
+## Agenda
+- Interfaces for testability
+- Manual mocking vs. mocking frameworks
+- Mocking time using `clockwork`
+
+---
+
+# Interfaces
+
+- Golang allows us to use interfaces to define expected behaviour
+
+```go
+type Reader interface {
+	Read(p []byte) (n int, err error)
+}
+
+func ReadAll(reader Reader) (out []byte, err error) {
+	var (
+		n int
+		buffer := make([]byte, 1024)
+	)
+	for err == nil {
+		n, err = reader.Read(buffer)
+		// ...
+	}
+}
+```
+
+---
+
+# Interfaces - Good Practices
+
+- Accept interfaces, return concrete types
+- Use minimal interfaces
+- Prefer composition over adding methods
+- Declare them where they used
+- Design based on purpose, not implementation
+
+---
+
+# Types of Mocks
+
+- Mock
+    - Objects with predefined behavior that register calls they receive.
+    - Used to verify how code interacts with dependencies, focusing on behavior rather than output.
+- Stub
+    - Objects that return predefined values without expecting specific calls.
+    - Used to provide necessary data for tests, often returning fixed responses.
+- Fake
+    - Objects with working implementations that take shortcuts for performance.
+    - Used to simulate real objects, often for testing interactions with external services.
+
+---
+
+# Manual Mocking
+
+```go
+// Interface
+type Reader interface {
+	Read(p []byte) (n int, err error)
+}
+
+// Mock
+type
+
+```
+
+
+
 
     To process
     - `go test -bench .` - runs benchmarks
