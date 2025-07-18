@@ -80,6 +80,7 @@ Who am I?
 - `go test ./...` - runs all tests in the current directory and all subdirectories
 - `go test ./module/...` - runs all tests in `module` and its subdirectories
 - `go test -run Add` - runs all tests that contain the string `Add` in their name
+- `go test -count=1` - disable test caching
 
 ---
 
@@ -700,7 +701,6 @@ Create a test suite for an email validator with these requirements:
    - user.name+tag@domain.com
 
 2. Invalid cases:
-   - Empty string
    - Missing @
    - Missing domain
    - Missing name
@@ -920,7 +920,7 @@ func ReadAll(reader Reader) (out []byte, err error) {
 
 ---
 
-# Manual Mocking
+# Manual Mocking - function fields
 
 ```go
 // Interface
@@ -929,28 +929,491 @@ type Reader interface {
 }
 
 // Mock
-type
+type Mock struct {
+    ReaderFn func([]byte) (int, error)
+}
 
+func (m Mock) Read(p []byte) (int, error) {
+    return m.ReaderFn(p)
+}
+
+// Test
+func TestReader(t *testing.T) {
+    mock := Mock{
+        ReaderFn: func(_ []byte) (int, error) {
+            return 0, errors.New("fail")
+        }
+    }
+}
 ```
 
+This methods allows us to easily specify expected behaviour for each test.
+
+---
+
+# Generated Mocks - [`gomock`](https://github.com/uber-go/mock)
+
+Adds a command to generate mocks based on interfaces.
+
+In command line:
+```
+mockgen -destination=mocks/clients.gen.go -source=service.go -package=mocks . S3Client
+```
+
+In code:
+```go
+//go:generate mockgen -destination=mocks/clients.gen.go -package=mocks . S3Client
+```
+And run `go generate`.
+
+Will generate a structure implementing each function in the interface.
+
+---
+
+# Generated Mocks - [`gomock`](https://github.com/uber-go/mock) usage
+
+```go
+func TestCountBytes_GoMock(t *testing.T) {
+t.Run("ok", func(t *testing.T) {
+    ctrl := gomock.NewController(t)
+
+    reader := NewMockReader(ctrl)
+
+    reader.EXPECT().Read(gomock.Any()).Return(1, nil).Times(2)
+    reader.EXPECT().Read(gomock.Any()).Return(0, io.EOF).Times(1)
+
+    // Same expectations are processed in order, so this would have
+    // to be called after function got `io.EOF` and finished.
+    // Uncommenting this line would cause the test to fail with
+    // `Unmet Expectation` error.
+    //reader.EXPECT().Read(gomock.Any()).Return(1, nil)
+
+    got, err := CountBytes(reader)
+    if err != nil {
+        t.Errorf("CountBytes() error = %v, want nil", err)
+    }
+    if got != 2 {
+        t.Errorf("CountBytes() got = %v, want %v", got, 2)
+    }
+})
+```
+
+---
+
+# Mocking http
+
+Golang provides library `httptest` for creating fake http servers and requests for testing.
+
+For servers:
+- `httptest.NewRequest` for mocking request
+- `httptest.ResponseRecorder` to check response body and status code.
+
+For clients:
+- `httptest.NewServer` to create mock servers
+- `mock.URL` and `mock.Client` for connecting
+
+See `examples/mocking/http`.
+
+---
+
+# Mocking http - server
+
+```go
+srv := &Server{}
+
+requestBody := []byte("123")
+responseRecorder := httptest.NewRecorder()
+request := httptest.NewRequest(http.MethodGet, "/", bytes.NewReader(requestBody))
+
+srv.ServeHTTP(responseRecorder, request)
+
+if responseRecorder.Code != http.StatusOK {
+    t.Fatalf("expected 200, got `%d`", responseRecorder.Code)
+}
+if responseRecorder.Body.String() != "3" {
+    t.Fatalf("expected `3`, got `%s`", responseRecorder.Body.String())
+}
+```
+
+---
+
+# Mocking http - client
+
+```go
+expected := "Hello, world!"
+handlerFn := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+    w.WriteHeader(http.StatusOK)
+    w.Write([]byte(expected))
+})
+
+srv := httptest.NewServer(handlerFn)
+defer srv.Close()
+
+client := srv.Client()
+resp, _ := client.Get(srv.URL)
+defer resp.Body.Close()
+
+if resp.StatusCode != http.StatusOK {
+    t.Errorf("got status %d, want %d", resp.StatusCode, http.StatusOK)
+}
+
+body, _ := io.ReadAll(resp.Body)
+if string(body) != expected {
+    t.Errorf("got body %q, want %q", string(body), expected)
+}
+```
+
+---
+
+# Exercise 4: TODO
+
+---
+
+# Part 5: Test Structure
+
+In this section:
+- Writing performance benchmarks with BenchmarkXxx
+- Testing concurrent code (data races, -race flag, testing/synctest)
+- Creating mock containers for integration tests.
+- Hands-on: Writing a benchmark and a concurrent test
+
+---
+
+# Why benchmark?
+
+---
+
+# Benchmarking in Go
+
+Similar to testing go provides tools for benchmarking your code.
+- `go test -bench .` - runs benchmarks
+- `go test -benchmem` - runs benchmarks and shows memory usage
+- `go test -benchtime 10s` - runs benchmarks for 10 seconds
+
+Benchmark functions must start with `Benchmark` and receive `*testing.B`
+---
+
+# testing.B
+
+- [Documentation](https://pkg.go.dev/testing)
+- Provides a number of methods for managing benchmarks.
+- We have access to the same functions for logs and structured benchmarking as in `testing.T`
+
+```go
+// New format
+func BenchmarkRandInt(b *testing.B) {
+    expensiveSetup()
+
+    for b.Loop() {
+        benchmarkedLogic()
+    }
+}
+
+// Old format
+func BenchmarkRandInt(b *testing.B) {
+    expensiveSetup()
+
+    // If setup was required you should reset the timer
+    b.ResetTimer()
+    for range b.N {
+        benchmarkedLogic()
+    }
+}
+```
+
+---
+
+# Benchmark report
+
+```go
+func BenchmarkRandInt(b *testing.B) {
+    for b.Loop() {
+        rand.Int()
+    }
+}
+```
+```
+go test -v -bench .
+
+goos: linux
+goarch: amd64
+pkg: benchmarking
+cpu: 12th Gen Intel(R) Core(TM) i7-12700
+BenchmarkRandInt
+BenchmarkRandInt-20     198654988                6.034 ns/op
+PASS
+ok      benchmarking    1.201s
+```
+
+Means that the body of the loop ran 198654988 times at a speed of 6.034 ns per loop.
+
+---
+
+# Testing for data races
+
+- `go test -race` - runs tests with race detector
+
+```go
+func Race() {
+	ch := make(chan bool)
+	data := map[string]int{}
+
+	go func() {
+		data["0"] = 1
+		ch <- true
+	}()
+	data["0"] = 2
+	<-ch
+}
+```
+
+`go test -count=1 .` - Will pass as it does not detect a data race issue
+
+`go test -count=1 -race .` - Will fail
+
+---
+
+# Testing concurrent code - problem
+
+Let's consider following code:
+```go
+func TestAfterFunc(t *testing.T) {
+    ctx, cancel := context.WithCancel(context.Background())
+
+    calledCh := make(chan struct{}) // closed when AfterFunc is called
+    context.AfterFunc(ctx, func() {
+        close(calledCh)
+    })
+
+    // TODO: Assert that the AfterFunc has not been called.
+
+    cancel()
+
+    // TODO: Assert that the AfterFunc has been called.
+}
+```
+
+How can we test that `AfterFunc` will not be called until `cancel()`?
 
 
+---
 
-    To process
-    - `go test -bench .` - runs benchmarks
-    - `go test -benchmem` - runs benchmarks and shows memory usage
-    - `go test -benchtime 10s` - runs benchmarks for 10 seconds
-    - `go test -bench . -benchmem -benchtime 10s` - runs benchmarks and shows memory usage for 10 seconds
-    - `go test -race` - runs tests with race detector
-    - `go test -short` - runs tests that are short (less than 10 seconds)
-| Command | Description |
-|---------|-------------|
-| `go test` | Run tests in current package |
-| `go test -v` | Verbose output |
-| `go test -run=^TestXxx$` | Run specific test |
-| `go test -count=1` | Disable test caching |
-| `go test -race` | Test for race conditions |
+# Testing concurrent code - partial solution
 
+```go
+// funcCalled reports whether the function was called.
+funcCalled := func() bool {
+    select {
+    case <-calledCh:
+        return true
+    case <-time.After(10 * time.Millisecond):
+        return false
+    }
+}
+
+if funcCalled() {
+    t.Fatalf("AfterFunc function called before context is canceled")
+}
+
+cancel()
+
+if !funcCalled() {
+    t.Fatalf("AfterFunc function not called after context is canceled")
+}
+```
+
+- slow:  10 milliseconds isn’t a lot of time, but it adds up over many tests.
+- flaky: can fail on overloaded CI systems
+
+
+---
+
+# Testing concurrent code - new way
+
+go1.24 introduced new experimental package `testing/synctest` - [More Info](https://go.dev/blog/synctest).
+For now it requires setting `GOEXPERIMENT=synctest`, but will become standard in go1.25.
+
+```go
+func TestAfterFunc(t *testing.T) {
+    synctest.Run(func() {
+        ctx, cancel := context.WithCancel(context.Background())
+        funcCalled := false
+        context.AfterFunc(ctx, func() {
+            funcCalled = true
+        })
+
+        // Will wait for every goroutine to block before continuing.
+        synctest.Wait()
+        if funcCalled {
+            t.Fatalf("AfterFunc function called before context is canceled")
+        }
+
+        cancel()
+
+        synctest.Wait()
+        if !funcCalled {
+            t.Fatalf("AfterFunc function not called after context is canceled")
+        }
+    })
+}
+```
+
+---
+
+# Testing time - new way
+
+Additionally withing `synctest.Run` we are using a fake clock which advances only when all goroutines are blocked.
+```go
+ func TestWithTimeout(t *testing.T) {
+    synctest.Run(func() {
+        const timeout = 5 * time.Second
+        ctx, cancel := context.WithTimeout(context.Background(), timeout)
+        defer cancel()
+
+        // Wait just less than the timeout.
+        time.Sleep(timeout - time.Nanosecond)
+        synctest.Wait()
+        if err := ctx.Err(); err != nil {
+            t.Fatalf("before timeout, ctx.Err() = %v; want nil", err)
+        }
+
+        // Wait the rest of the way until the timeout.
+        time.Sleep(time.Nanosecond)
+        synctest.Wait()
+        if err := ctx.Err(); err != context.DeadlineExceeded {
+            t.Fatalf("after timeout, ctx.Err() = %v; want DeadlineExceeded", err)
+        }
+    })
+}
+```
+
+---
+
+# Mock containers
+
+---
+
+# Exercise 5
+
+---
+
+# Part 6: Frameworks and Best Practices
+
+In this section:
+- testify for expressive assertions
+- Setup / teardown strategies
+- Golden files and snapshots
+
+---
+
+# `stretchr/testify`
+
+- [Documentation](https://github.com/stretchr/testify)
+- Provides a number of common assertions to simplify testing
+- `assert` functions return a boolean whether the check was successful
+- `require` functions will immediately fail the test
+- `mock` provides mechanisms simplifying writing manual mocks
+- `suite` provides mechanisms for making test suites
+
+---
+
+# Assert comparison
+
+```go
+func TestUserValidation(t *testing.T) {
+    user := User{ Email: "invalid-email", Age: 15}
+
+    err := user.Validate()
+    if err == nil {
+        t.Error("expected validation error for invalid email")
+    }
+
+    if !errors.Is(err, InvalidEmailError) {
+        t.Errorf("expected error about email, got: %v", err)
+    }
+}
+
+func TestUserValidationAsserts(t *testing.T) {
+    user := User{ Email: "invalid-email", Age: 15}
+
+    err := user.Validate()
+    require.ErrorIs(t, err, InvalidEmailError)
+}
+```
+
+---
+
+# Test Setup
+
+---
+
+# Test Teardown
+
+---
+
+# Golden files
+
+```
+Golden files are pre-approved reference outputs that represent the "correct"
+or expected results of a test case.
+They serve as the baseline against which the actual output is compared.
+```
+
+### When to use
+
+Golden files should be used when the tested output:
+- is large (json responses, generated files, transcoded values etc.)
+- is deterministic (either static or can be templated)
+- doesn't change very often
+
+### When not to use
+
+- non-deterministic outputs (f.ex. real-time logs)
+- frequently changing requirements
+
+---
+
+
+# Golden files - maintenance
+
+When using golden files it is good practice to make your tests able to update golden files.
+
+```go
+ func TestGenerateReport(t *testing.T) {
+    report := GenerateReport()
+    goldenFile := "TestGenerateReport.golden"
+
+    if os.Getenv("UPDATE_GOLDEN") == "1" {
+        err := os.WriteFile(filepath.Join("testdata", goldenFile), report, 0644)
+        if err != nil {
+            t.Fatal(err)
+        }
+    }
+
+    expected := readGolden(t, goldenFile)
+    if diff := cmp.Diff(expected, report); diff != "" {
+        t.Errorf("Report mismatch (-want +got):\n%s", diff)
+    }
+}
+```
+
+---
+
+# Exercise 6
+
+---
+
+# More information
+
+[Common Go Mistakes](https://100go.co/#not-understanding-race-problems-data-races-vs-race-conditions-and-the-go-memory-model-58)
+
+[Learn Go with tests](https://github.com/quii/learn-go-with-tests)
+
+[testify - documentation](https://github.com/stretchr/testify)
+
+[Golang - synctest post](https://go.dev/blog/synctest)
+
+[Vincent Demeester - Golang testing - golden file](https://vincent.demeester.fr/posts/2017-04-22-golang-testing-golden-file/)
 
 
     </textarea>
