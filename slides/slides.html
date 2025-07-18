@@ -21,7 +21,10 @@
             font-family: 'Ubuntu Mono';
         }
 
-        img[alt=drawing] {
+        img[alt=drawing_tdd] {
+            width: 40%;
+        }
+        img[alt=drawing_coverage] {
             width: 75%;
         }
     </style>
@@ -90,18 +93,18 @@ Who am I?
 - Provides a number of methods for managing tests
 
 ```go
-    func TestUserValidation(t *testing.T) {
-        user := User{ Email: "invalid-email", Age: 15}
+func TestUserValidation(t *testing.T) {
+    user := User{ Email: "invalid-email", Age: 15}
 
-        err := user.Validate()
-        if err == nil {
-            t.Error("expected validation error for invalid email")
-        }
-
-        if !strings.Contains(err.Error(), "email") {
-            t.Errorf("expected error about email, got: %v", err)
-        }
+    err := user.Validate()
+    if err == nil {
+        t.Error("expected validation error for invalid email")
     }
+
+    if !strings.Contains(err.Error(), "email") {
+        t.Errorf("expected error about email, got: %v", err)
+    }
+}
 ```
 
 ---
@@ -116,19 +119,19 @@ Who am I?
 - Functions also have a `f` variant that accepts format strings and arguments
 
 ```go
-    func TestAdd(t *testing.T) {
-        t.Log("Add(1, 2) =", Add(1, 2))
-        t.Error("Error message")
-        t.Fatal("Fatal message")
-        t.Log("Will not be printed")
-    }
+func TestAdd(t *testing.T) {
+    t.Log("Add(1, 2) =", Add(1, 2))
+    t.Error("Error message")
+    t.Fatal("Fatal message")
+    t.Log("Will not be printed")
+}
 ```
 ```
-    === RUN   TestAdd
-        struct_test.go:33: Add(1, 2) = 3
-        struct_test.go:34: Error message
-        struct_test.go:35: Fatal message
-    --- FAIL: TestAdd (0.00s)
+=== RUN   TestAdd
+    struct_test.go:33: Add(1, 2) = 3
+    struct_test.go:34: Error message
+    struct_test.go:35: Fatal message
+--- FAIL: TestAdd (0.00s)
 ```
 
 ---
@@ -142,23 +145,23 @@ Who am I?
 - `t.FailNow` - fails the test and stops the test run
 
 ```go
-    func TestAdd(t *testing.T) {
-        t.Run("ok", func(t *testing.T) {
-            t.Log("ok")
-        }
-        t.Run("skip", func(t *testing.T) {
-            t.Skip("skipped")
-        }
+func TestAdd(t *testing.T) {
+    t.Run("ok", func(t *testing.T) {
+        t.Log("ok")
     }
+    t.Run("skip", func(t *testing.T) {
+        t.Skip("skipped")
+    }
+}
 ```
 ```
-    === RUN   TestAdd
-    === RUN   TestAdd/ok
-        struct_test.go:34: ok
-    --- PASS: TestAdd/ok (0.00s)
-    === RUN   TestAdd/skip
-        struct_test.go:37: skipped
-    --- SKIP: TestAdd/skip (0.00s)
+=== RUN   TestAdd
+=== RUN   TestAdd/ok
+    struct_test.go:34: ok
+--- PASS: TestAdd/ok (0.00s)
+=== RUN   TestAdd/skip
+    struct_test.go:37: skipped
+--- SKIP: TestAdd/skip (0.00s)
 ```
 
 ---
@@ -198,7 +201,7 @@ from [Wikipedia](https://en.wikipedia.org/wiki/Test-driven_development)
 
 In short:
 
-![drawing](tdd.png)
+.center[![drawing_tdd](tdd.png)]
 
 ---
 
@@ -316,7 +319,6 @@ func TestDiv(t *testing.T) {
         t.Errorf("expected 5, got %v", result)
     }
 }
-
 ```
 
 ---
@@ -341,7 +343,6 @@ func TestDiv(t *testing.T) {
     }
     // ... test implementation
 }
-
 ```
 
 Always consider boundary conditions, special cases, and error scenarios. Missing edge cases can lead to production bugs.
@@ -375,7 +376,6 @@ func TestValidateEmail(t *testing.T) {
         t.Errorf("ValidateEmail(%q) = false; want true", email)
     }
 }
-
 ```
 
 Error messages should clearly indicate what went wrong, what was expected, and what actually happened. This helps tremendously when debugging test failures.
@@ -589,7 +589,6 @@ func TestAbs(t *testing.T) {
 
 # Test Helper Functions
 
-- Reduce code duplication
 - Improve test readability
 - Consistent error reporting
 - Reusable test utilities
@@ -647,7 +646,6 @@ func TestUserService_Create(t *testing.T) {
         t.Run("too_young", func(t *testing.T) {})
     })
 }
-
 ```
 
 ---
@@ -716,7 +714,7 @@ Tasks:
 
 # Part 3: Test Organization and Coverage
 
-## Agenda
+In this section:
 - Test Package Organization
 - Code Coverage Tools
 - Coverage Analysis
@@ -769,7 +767,7 @@ Common patterns:
 
 # Coverage HTML View (example)
 
-![drawing](coverage.png)
+![drawing_coverage](coverage.png)
 
 - Green: Covered lines
 - Red: Uncovered lines
@@ -800,7 +798,7 @@ Common patterns:
 
 Go allows us to use build tags to conditionally compile code based on build tags.
 
-See examples/buildTag
+See `examples/buildTag`
 
 Use cases:
 - Separate unit and integration tests
@@ -813,7 +811,7 @@ Use cases:
 
 You'll work with a `userservice` package that handles user operations. Your task is to analyze the coverage and improve it.
 
-Initial code in `exercise3/userservice/user.go`:
+Initial code is located in `exercise3/userservice/user.go`:
 
 ---
 
@@ -866,7 +864,7 @@ Initial code in `exercise3/userservice/user.go`:
 
 # Part 4: Mocks and Dependency Isolation
 
-## Agenda
+In this section:
 - Interfaces for testability
 - Manual mocking vs. mocking frameworks
 - Mocking time using `clockwork`
@@ -879,18 +877,18 @@ Initial code in `exercise3/userservice/user.go`:
 
 ```go
 type Reader interface {
-	Read(p []byte) (n int, err error)
+    Read(p []byte) (n int, err error)
 }
 
 func ReadAll(reader Reader) (out []byte, err error) {
-	var (
-		n int
-		buffer := make([]byte, 1024)
-	)
-	for err == nil {
-		n, err = reader.Read(buffer)
-		// ...
-	}
+    var (
+        n int
+        buffer := make([]byte, 1024)
+    )
+    for err == nil {
+        n, err = reader.Read(buffer)
+        // ...
+    }
 }
 ```
 
@@ -925,7 +923,7 @@ func ReadAll(reader Reader) (out []byte, err error) {
 ```go
 // Interface
 type Reader interface {
-	Read(p []byte) (n int, err error)
+    Read(p []byte) (n int, err error)
 }
 
 // Mock
@@ -974,27 +972,27 @@ Will generate a structure implementing each function in the interface.
 
 ```go
 func TestCountBytes_GoMock(t *testing.T) {
-t.Run("ok", func(t *testing.T) {
-    ctrl := gomock.NewController(t)
+    t.Run("ok", func(t *testing.T) {
+        ctrl := gomock.NewController(t)
 
-    reader := NewMockReader(ctrl)
+        reader := NewMockReader(ctrl)
 
-    reader.EXPECT().Read(gomock.Any()).Return(1, nil).Times(2)
-    reader.EXPECT().Read(gomock.Any()).Return(0, io.EOF).Times(1)
+        reader.EXPECT().Read(gomock.Any()).Return(1, nil).Times(2)
+        reader.EXPECT().Read(gomock.Any()).Return(0, io.EOF).Times(1)
 
-    // Same expectations are processed in order, so this would have
-    // to be called after function got `io.EOF` and finished.
-    // Uncommenting this line would cause the test to fail with
-    // `Unmet Expectation` error.
-    //reader.EXPECT().Read(gomock.Any()).Return(1, nil)
+        // Same expectations are processed in order, so this would have
+        // to be called after function got `io.EOF` and finished.
+        // Uncommenting this line would cause the test to fail with
+        // `Unmet Expectation` error.
+        //reader.EXPECT().Read(gomock.Any()).Return(1, nil)
 
-    got, err := CountBytes(reader)
-    if err != nil {
-        t.Errorf("CountBytes() error = %v, want nil", err)
-    }
-    if got != 2 {
-        t.Errorf("CountBytes() got = %v, want %v", got, 2)
-    }
+        got, err := CountBytes(reader)
+        if err != nil {
+            t.Errorf("CountBytes() error = %v, want nil", err)
+        }
+        if got != 2 {
+            t.Errorf("CountBytes() got = %v, want %v", got, 2)
+        }
 })
 ```
 
@@ -1155,15 +1153,15 @@ Means that the body of the loop ran 198654988 times at a speed of 6.034 ns per l
 
 ```go
 func Race() {
-	ch := make(chan bool)
-	data := map[string]int{}
+    ch := make(chan bool)
+    data := map[string]int{}
 
-	go func() {
-		data["0"] = 1
-		ch <- true
-	}()
-	data["0"] = 2
-	<-ch
+    go func() {
+        data["0"] = 1
+        ch <- true
+    }()
+    data["0"] = 2
+    <-ch
 }
 ```
 
@@ -1264,7 +1262,7 @@ func TestAfterFunc(t *testing.T) {
 
 Additionally withing `synctest.Run` we are using a fake clock which advances only when all goroutines are blocked.
 ```go
- func TestWithTimeout(t *testing.T) {
+func TestWithTimeout(t *testing.T) {
     synctest.Run(func() {
         const timeout = 5 * time.Second
         ctx, cancel := context.WithTimeout(context.Background(), timeout)
@@ -1379,7 +1377,7 @@ Golden files should be used when the tested output:
 When using golden files it is good practice to make your tests able to update golden files.
 
 ```go
- func TestGenerateReport(t *testing.T) {
+func TestGenerateReport(t *testing.T) {
     report := GenerateReport()
     goldenFile := "TestGenerateReport.golden"
 
