@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Title</title>
+    <title>Go Testing</title>
     <meta charset="utf-8">
     <style>
         @import url(https://fonts.googleapis.com/css?family=Yanone+Kaffeesatz);
@@ -24,6 +24,7 @@
         img[alt=drawing_tdd] {
             width: 40%;
         }
+
         img[alt=drawing_coverage] {
             width: 75%;
         }
@@ -40,29 +41,33 @@ class: center, middle
 
 # Agenda
 
-1. Introduction
-2. Testing fundamentals
-3. Naming and structure
-4. Coverage
-5. Mocks and Dependency Isolation
-6. Benchmarking, Concurrency, and Integration
-7. Test Frameworks and Best Practices
-
----
-
-# Introduction
-
-Who am I?
+1. Testing fundamentals
+2. Test structure
+3. Test Organization and Coverage
+4. Mocks and Dependency Isolation
+5. Benchmarking and Concurrency
+6. Frameworks and Best Practices
 
 ---
 
 # Why Test?
 
 - Catch bugs early
+  - Find issues before they reach production
+  - Reduce debugging time
+  - Lower cost of fixes
 - Document code behavior
+  - Tests serve as living documentation
+  - Show expected usage patterns
+  - Help new team members understand the code
 - Enable safe refactoring
+  - Confidence in changes
+  - Quick feedback on breaking changes
+  - Maintain backward compatibility
 - Improve code design
-- Provide confidence in changes
+  - Forces modular thinking
+  - Highlights dependency issues
+  - Encourages clean interfaces
 
 ---
 
@@ -72,8 +77,18 @@ Who am I?
 - Test files must end with `_test.go`
 - Test functions must start with `Test*` and have the same signature `func(t *testing.T)`
 - Test names should be:
-	- TestFuncName for functions (f.ex TestValidateEmail)
-	- TestStruct_Method for methods (f.ex TestValidator_Email)
+	- Test{Function} for functions
+	- Test{Struct}_{Method} for methods
+
+Examples:
+- TestValidateEmail
+- TestUserService_Create
+
+Benefits:
+- Clear test purpose
+- Easy to find relevant tests
+- Helps with test organization
+
 
 ---
 
@@ -205,13 +220,18 @@ In short:
 
 ---
 
-# Exercise: Calculator
+# Exercise 1: Calculator
 
-1. Write a test for a `Calculator` struct with `Sub` and `Div` methods
-2. Run the tests (it should fail)
-3. Implement the functions
-4. Run the tests again (it should pass)
-5. Refactor if needed
+In `exercise1` you will find a calculator structure with `Add` function.
+Add following functions in accordance to TDD principles:
+    - Sub(a, b float64) float64 - subtracts b from a
+    - Div(a, b float64) (float64, error) - divides a by b
+
+
+1. Write tests for both method (they should fail)
+2. Implement the functions
+3.  Run tests to verify implementation
+4. Refactor if needed
 
 ---
 
@@ -583,7 +603,9 @@ func TestAbs(t *testing.T) {
 
 ### When not to Use
 
-# TODO: Add
+- Complex setup / teardown requirements
+- Different verification methods
+- Stateful tests
 
 ---
 
@@ -688,9 +710,9 @@ Structured Tests:
 
 ---
 
-# Exercise: Email Validator
+# Exercise 2: Email Validator
 
-Create a test suite for an email validator with these requirements:
+Create a table test for an email validator with these requirements:
 
 1. Valid email formats:
    - user@domain.com
@@ -798,24 +820,32 @@ Common patterns:
 
 Go allows us to use build tags to conditionally compile code based on build tags.
 
-See `examples/buildTag`
-
 Use cases:
 - Separate unit and integration tests
 - Environment-specific tests
 - Long-running tests
 
+```go
+// mock.go
+//go:build mock
+    package main
+    const env = "mock"
+
+// real.go
+//go:build !mock
+    package main
+    const env = "real"
+
+// main.go
+package main
+func main() {
+    fmt.Println(env) // "real" or "mock"
+}
+```
+
 ---
 
-# Exercise: Coverage Analysis and Improvement
-
-You'll work with a `userservice` package that handles user operations. Your task is to analyze the coverage and improve it.
-
-Initial code is located in `exercise3/userservice/user.go`:
-
----
-
-## Exercise tasks:
+# Exercise 3: Coverage Analysis and Improvement
 
 1. Run the coverage analysis:
    ```bash
@@ -998,6 +1028,25 @@ func TestCountBytes_GoMock(t *testing.T) {
 
 ---
 
+# Choosing Mocking Approach
+
+1. Manual Mocks
+   - Simple interfaces (1-2 methods)
+   - Need flexible behavior per test
+   - Want explicit control
+
+2. Generated Mocks (gomock)
+   - Complex interfaces
+   - Need strict verification
+   - Working with legacy code
+
+3. Functional Fields
+   - Need different behavior per test
+   - Simple dependencies
+   - Testing callbacks/handlers
+
+---
+
 # Mocking http
 
 Golang provides library `httptest` for creating fake http servers and requests for testing.
@@ -1009,8 +1058,6 @@ For servers:
 For clients:
 - `httptest.NewServer` to create mock servers
 - `mock.URL` and `mock.Client` for connecting
-
-See `examples/mocking/http`.
 
 ---
 
@@ -1063,21 +1110,48 @@ if string(body) != expected {
 
 ---
 
-# Exercise 4: TODO
+# Exercise 4: Mocking External Dependencies
+
+1. Extract Interface
+   - Create an interface for the email sending functionality
+   - Update `user.Service` to use the interface instead of concrete type
+
+2. Create Mock
+   - Create a mock implementation of the email sender interface
+   - The mock should:
+     - Record if SendEmail was called
+     - Record if correct email address was passed
+     - Allow setting a return value for testing error cases
+
+3. Write Tests
+   - Test successful notification
+   - Test error handling
+   - Verify correct email parameters
 
 ---
 
-# Part 5: Test Structure
+# Part 5: Benchmarking and Concurrency
 
 In this section:
 - Writing performance benchmarks with BenchmarkXxx
 - Testing concurrent code (data races, -race flag, testing/synctest)
 - Creating mock containers for integration tests.
-- Hands-on: Writing a benchmark and a concurrent test
 
 ---
 
 # Why benchmark?
+
+- Performance Optimization
+    - Identify bottlenecks
+    - Compare implementations
+    - Validate optimizations
+    - Set performance baselines
+
+
+- System Design
+    - Capacity planning
+    - Performance budgets
+    - Scaling decisions
 
 ---
 
@@ -1089,6 +1163,12 @@ Similar to testing go provides tools for benchmarking your code.
 - `go test -benchtime 10s` - runs benchmarks for 10 seconds
 
 Benchmark functions must start with `Benchmark` and receive `*testing.B`
+
+```go
+func BenchmarkFunction(b *testing.B) {}
+func BenchmarkStruct_Method(b *testing.B) {}
+```
+
 ---
 
 # testing.B
@@ -1098,7 +1178,7 @@ Benchmark functions must start with `Benchmark` and receive `*testing.B`
 - We have access to the same functions for logs and structured benchmarking as in `testing.T`
 
 ```go
-// New format
+// New format go1.24
 func BenchmarkRandInt(b *testing.B) {
     expensiveSetup()
 
@@ -1107,7 +1187,7 @@ func BenchmarkRandInt(b *testing.B) {
     }
 }
 
-// Old format
+// Old format go1.23 and before
 func BenchmarkRandInt(b *testing.B) {
     expensiveSetup()
 
@@ -1192,7 +1272,6 @@ func TestAfterFunc(t *testing.T) {
 ```
 
 How can we test that `AfterFunc` will not be called until `cancel()`?
-
 
 ---
 
@@ -1287,11 +1366,26 @@ func TestWithTimeout(t *testing.T) {
 
 ---
 
-# Mock containers
+# Exercise 5: Simple Concurrent Counter
 
----
+Create and test a thread-safe counter with the following requirements:
 
-# Exercise 5
+1. Implement a `Counter` struct with following methods:
+   - `Increment() int` - adds 1 and returns new value
+   - `Decrement() int` - subtracts 1 and returns new value
+   - `Get() int` - returns current value
+   - `Reset()` - sets value back to 0
+
+2. Write tests that verify:
+   - Basic operations work correctly
+   - Counter works correctly when called from multiple goroutines
+   - Test using the race detector
+
+
+Tips:
+- Use `sync.WaitGroup` to wait for goroutines in test (we'll provide example)
+- Start with basic tests before adding concurrent ones
+- Use `sync.Mutex` to protect shared state
 
 ---
 
@@ -1307,15 +1401,17 @@ In this section:
 # `stretchr/testify`
 
 - [Documentation](https://github.com/stretchr/testify)
-- Provides a number of common assertions to simplify testing
+- Provides a number modules to simplify testing
 - `assert` functions return a boolean whether the check was successful
+    - Use when you want to collect multiple failures
 - `require` functions will immediately fail the test
+    - Use when further test execution makes no sense
 - `mock` provides mechanisms simplifying writing manual mocks
 - `suite` provides mechanisms for making test suites
 
 ---
 
-# Assert comparison
+# `testify` assertions
 
 ```go
 func TestUserValidation(t *testing.T) {
@@ -1341,11 +1437,138 @@ func TestUserValidationAsserts(t *testing.T) {
 
 ---
 
+# `testify` mocks
+
+```go
+type MyMockedObject struct {
+	mock.Mock
+}
+
+func (m *MyMockedObject) DoSomething(number int) (bool, error) {
+	args := m.Called(number)
+	return args.Bool(0), args.Error(1)
+}
+
+func TestSomething(t *testing.T) {
+	// create an instance of our test object
+	testObj := new(MyMockedObject)
+
+	// set up expectations
+	testObj.On("DoSomething", 123).Return(true, nil)
+
+	// call the code we are testing
+	doSomething(testObj)
+
+	// assert that the expectations were met
+	testObj.AssertExpectations(t)
+}
+```
+
+---
+
+
+# `testify` suites
+
+
+
+```go
+type ExampleTestSuite struct {
+    suite.Suite
+}
+
+func (s *ExampleTestSuite) SetupAllSuite() {
+    // Will run before all tests
+}
+
+func (s *ExampleTestSuite) TearDownAllSuite() {
+    // Will run after all tests
+}
+
+func (s *ExampleTestSuite) SetupTestSuite() {
+    // Will run before each test
+}
+func (s *ExampleTestSuite) TearDownTestSuite() {
+    // Will run after each test
+}
+
+func (s *ExampleTestSuite) TestExample() {
+    // Each test must start with "Test"
+}
+
+func TestExampleSuite(t *testing.T) {
+    // Run entire suite
+    suite.Run(t, new(ExampleTestSuite))
+}
+```
+
+---
+
 # Test Setup
+
+1. If your tests require complex common setup use `TestMain`
+```go
+    func TestMain(m *testing.M) {
+
+        // Setup before running tests
+        exitCode := m.Run()
+        // Teardown after running tests
+
+        os.Exit(exitCode)
+    }
+```
+2. Use helper function for setup functions inside tests
+3. Keep setup minimal and relevant
+4. Make setup failures explicit with `t.Fatal`
 
 ---
 
 # Test Teardown
+
+- Use `t.Cleanup` for test-specific resources
+   - Automatically runs even if test fails
+   - Runs in reverse order of registration
+   - Works with subtests
+
+- Use `defer` for function-scope cleanup
+   - Good for simple cleanup
+   - Clear connection to setup
+
+- Clean up files and connections
+   - Remove temporary files
+   - Close network connections
+   - Release system resources
+
+---
+
+# Example
+
+```go
+func TestUserCreate(t *testing.T) {
+    // Use helper function to setup test database connection
+    db := setupDB(t))
+
+    // Setup closing the db once test is finished
+    defer db.Close()
+
+    // Setup your structures
+    userRepo := NewUserRepo(db)
+
+    // Setup your test data
+    user := User{Email: "<EMAIL>", Age: 15}
+
+    // Cleanup your test data
+    t.Cleanup(func() {
+        // Cleanup your test data
+        userRepo.Delete(user.ID)
+    })
+
+    // Run your test
+    err := userRepo.Create(user)
+    if err != nil {
+        t.Fatal(err)
+    }
+}
+```
 
 ---
 
@@ -1397,7 +1620,24 @@ func TestGenerateReport(t *testing.T) {
 
 ---
 
-# Exercise 6
+# Exercise 6: Test Framework Features
+
+1. Add testify to the project:
+   ```bash
+   go get github.com/stretchr/testify
+   ```
+
+2. Convert Calculator tests to use testify:
+   - Replace if/error checks with assert/require functions
+   - Create a test suite for calculator
+   - Add setup method that creates calculator instance
+
+3. Create a mock logger:
+   - Add Logger interface with Log(operation string) method
+   - Create mock using testify/mock
+   - Verify calculator logs operations
+
+
 
 ---
 
