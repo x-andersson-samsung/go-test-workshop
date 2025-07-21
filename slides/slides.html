@@ -75,7 +75,8 @@ class: center, middle
 
 - Go has a built-in testing framework we can use with the `go test` command.
 - Test files must end with `_test.go`
-- Test functions must start with `Test*` and have the same signature `func(t *testing.T)`
+- Test functions must start with `Test*` and have the same signature<br />
+    `func(t *testing.T)`
 - Test names should be:
 	- Test{Function} for functions
 	- Test{Struct}_{Method} for methods
@@ -188,6 +189,28 @@ func TestAdd(t *testing.T) {
 - `t.Cleanup` - registers a function that will be called after the test
 - `t.TempDir` - creates a temporary directory that will be removed after the test
 - `t.Parallel` - runs the test in parallel with other tests
+
+```go
+ 1 func helper(t *testing.T) {
+ 2    t.Helper()
+ 3    t.Fatal("Fail in helper")
+ 4 }
+ 5
+ 6 func noHelper(t *testing.T) {
+ 7    t.Fatal("Fail in noHelper")
+ 8 }
+ 9
+10 func Test(t *testing.T) {
+11    t.Run("helper", func(t *testing.T) { helper(t) })
+12    t.Run("nohelper", func(t *testing.T) { noHelper(t) })
+13 }
+```
+```
+=== RUN   Test/helper
+    main_test.go:11: Fail in helper
+=== RUN   Test/nohelper
+    main_test.go:7: Fail in noHelper
+```
 
 ---
 
@@ -482,14 +505,6 @@ In this section:
 
 # Table-Driven Tests
 
-## Why Use Table-Driven Tests?
-- Test multiple scenarios efficiently
-- Consistent test structure
-- Easy to add new test cases
-- Clear overview of test coverage
-
----
-
 ```go
 func TestAbs(t *testing.T) {
     tests := []struct {
@@ -499,16 +514,13 @@ func TestAbs(t *testing.T) {
     }{
         {
             name:    "positive",
-            input:   1,
-            want:    1,
+            input:   1, want:    1,
         }, {
             name:    "zero",
-            input:   0,
-            want:    0,
+            input:   0, want:    0,
         }, {
             name:    "negative",
-            input:   -1,
-            want:    1,
+            input:   -1, want:    1,
         },
     }
     for _, tt := range tests {
@@ -521,8 +533,10 @@ func TestAbs(t *testing.T) {
     }
 }
 ```
-
 ---
+
+# Table-Driven Tests
+
 
 ```go
 // Example: map instead of array
@@ -533,13 +547,11 @@ func TestCalculate(t *testing.T) {
         wantErr  bool
     }{
         "two_numbers": {
-            input:   "1,2",
-            want:    3,
+            input:   "1,2", want:    3,
             wantErr: false,
         },
         "invalid_input": {
-            input:   "1,a",
-            want:    0,
+            input:   "1,a", want:    0,
             wantErr: true,
         },
     }
@@ -547,16 +559,25 @@ func TestCalculate(t *testing.T) {
         t.Run(name, func(t *testing.T) {
             got, err := Calculate(tt.input)
             if (err != nil) != tt.wantErr {
-                t.Errorf("Calculate() error = %v, wantErr %v", err, tt.wantErr)
-                return
+                t.Fatalf("Calculate() error = %v, wantErr %v", err, tt.wantErr)
             }
             if got != tt.want {
-                t.Errorf("Calculate() = %v, want %v", got, tt.want)
+                t.Fatalf("Calculate() = %v, want %v", got, tt.want)
             }
         })
     }
 }
 ```
+
+---
+
+# Table-Driven Tests
+
+## Why Use Table-Driven Tests?
+- Test multiple scenarios efficiently
+- Consistent test structure
+- Easy to add new test cases
+- Clear overview of test coverage
 
 ---
 
