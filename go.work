@@ -1,0 +1,24 @@
+go 1.24
+
+use (
+	examples/buildTag
+	examples/golden
+	examples/mocking/gomock
+	examples/mocking/http
+	examples/mocking/time
+	examples/race
+	examples/struct_comparison
+	examples/synctest
+	exercises/exercise1
+	exercises/exercise2
+	exercises/exercise3
+	exercises/exercise4
+	exercises/exercise5
+	exercises/exercise6
+	exercises/solutions/exercise1
+	exercises/solutions/exercise2
+	exercises/solutions/exercise3
+	exercises/solutions/exercise4
+	exercises/solutions/exercise5
+	exercises/solutions/exercise6
+)

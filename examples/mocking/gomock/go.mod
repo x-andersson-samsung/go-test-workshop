@@ -1,4 +1,4 @@
-module mocking
+module mocking_gomock
 
 go 1.24
 
