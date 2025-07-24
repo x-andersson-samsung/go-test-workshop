@@ -1,10 +1,11 @@
 package calculator
 
 import (
-	"errors"
 	"fmt"
 	"math"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestCalculator_Add(t *testing.T) {
@@ -22,9 +23,7 @@ func TestCalculator_Add(t *testing.T) {
 	for _, c := range cases {
 		t.Run(fmt.Sprintf("%d + %d", c.a, c.b), func(t *testing.T) {
 			got := (Calculator{}).Add(c.a, c.b)
-			if got != c.want {
-				t.Fatalf("calculator should return %d, got %d", c.want, got)
-			}
+			require.Equal(t, c.want, got)
 		})
 	}
 }
@@ -43,9 +42,7 @@ func TestCalculator_Sub(t *testing.T) {
 	for _, c := range cases {
 		t.Run(fmt.Sprintf("%d - %d", c.a, c.b), func(t *testing.T) {
 			got := (Calculator{}).Sub(c.a, c.b)
-			if got != c.want {
-				t.Fatalf("calculator should return %d, got %d", c.want, got)
-			}
+			require.Equal(t, c.want, got)
 		})
 	}
 }
@@ -69,12 +66,8 @@ func TestCalculator_Div(t *testing.T) {
 	for _, c := range cases {
 		t.Run(fmt.Sprintf("%d / %d", c.a, c.b), func(t *testing.T) {
 			got, gotErr := (Calculator{}).Div(c.a, c.b)
-			if got != c.want {
-				t.Fatalf("calculator should return %d, got %d", c.want, got)
-			}
-			if !errors.Is(gotErr, c.wantErr) {
-				t.Fatalf("calculator should return error `%v`, got `%v`", c.wantErr, gotErr)
-			}
+			require.ErrorIs(t, gotErr, c.wantErr)
+			require.Equal(t, c.want, got)
 		})
 	}
 }

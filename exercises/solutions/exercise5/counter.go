@@ -1,34 +1,39 @@
 package exercise5
 
 import (
-	"log"
 	"sync"
-	"time"
 )
 
-type Counter struct{}
+func NewCounter() *Counter {
+	return &Counter{}
+}
 
-// Using WaitGroup Example
-func UsingWaitGroup() {
-	// Create a waitGroup
-	wG := sync.WaitGroup{}
+type Counter struct {
+	sync.Mutex
+	value int
+}
 
-	// Add tokens as needed
-	routineCount := 2
-	wG.Add(routineCount)
+func (c *Counter) Inc() {
+	// Comment those 2 lines and check tests with and without -race flag
+	c.Lock()
+	defer c.Unlock()
+	c.value++
+}
 
-	// Run goroutines
-	for range routineCount {
-		go func() {
-			time.Sleep(1 * time.Second)
-			log.Printf("routine done")
+func (c *Counter) Dec() {
+	c.Lock()
+	defer c.Unlock()
+	c.value--
+}
 
-			// Free a token
-			wG.Done()
-		}()
-	}
+func (c *Counter) Reset() {
+	c.Lock()
+	defer c.Unlock()
+	c.value = 0
+}
 
-	// Wait until all routines are done
-	wG.Wait()
-	log.Printf("everything done")
+func (c *Counter) Value() int {
+	c.Lock()
+	defer c.Unlock()
+	return c.value
 }

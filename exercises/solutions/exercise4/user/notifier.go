@@ -1,18 +1,22 @@
 package user
 
-import (
-	"exercise4/email"
+const (
+	emailSender           = "no-reply@test.com"
+	accountCreatedSubject = "Account Created"
+	accountCreatedBody    = "Your account has been created."
 )
 
-const emailSender = "no-reply@test.com"
+// Create the interface
+type Sender interface {
+	Send(sender, recipient, subject, body string) error
+}
 
 type Service struct {
-	Email email.Sender
+	// Change field type from concrete struct to the interface
+	Email Sender
 }
 
 func (s *Service) NotifyAccountCreated(email string) error {
-	subject := "Account created"
-	body := "Your account has been created."
-
-	return s.Email.Send(emailSender, emailSender, subject, body)
+	// Fix second parameter to properly pass the recipient email
+	return s.Email.Send(emailSender, email, accountCreatedSubject, accountCreatedBody)
 }
