@@ -44,4 +44,9 @@ By the end of the training, participants will:
 - Understand how to write and structure tests in Go
 - Be able to test real-world codebases with unit, integration, and concurrent tests
 - Know how to use tools like `testify`, `go test`, and code coverage utilities effectively
-- Be familiar with Go testing patterns and performance testing (edited) 
+- Be familiar with Go testing patterns and performance testing (edited)
+
+# Contributions
+
+Michał Parzych (mmich-pl) - redesign of exercise 4.
+
