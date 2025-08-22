@@ -10,7 +10,7 @@ import (
 
 // Despite the fact that we are waiting for 4 seconds in the longest routine, the test will still barely take any time.
 func TestSynctestTime(t *testing.T) {
-	synctest.Run(func() {
+	synctest.Test(t, func(t *testing.T) {
 		wg := sync.WaitGroup{}
 		wg.Add(3)
 		go func() {

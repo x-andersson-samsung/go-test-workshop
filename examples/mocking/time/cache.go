@@ -6,6 +6,12 @@ import (
 	"github.com/jonboulle/clockwork"
 )
 
+/*
+	This package represents a way of testing time-sensitive code using clockwork package.
+	go 1.25 introduced synctest into the standard which allows us to easily test such code with standard library.
+	(see synctest example).
+*/
+
 type ID string
 
 type Entry struct {
@@ -16,7 +22,7 @@ type Entry struct {
 type Cache struct {
 	entries map[ID]Entry
 	TTL     time.Duration
-	Clock   clockwork.Clock
+	Clock   clockwork.Clock // Adding controllable clock
 }
 
 func (c *Cache) Get(id ID) (string, bool) {

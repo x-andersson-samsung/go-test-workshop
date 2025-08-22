@@ -10,8 +10,8 @@ import (
 	"os"
 	"sync"
 
-	"mocking/internal/client"
-	"mocking/internal/server"
+	"mocking_http/internal/client"
+	"mocking_http/internal/server"
 )
 
 func runServer(addr string, exitCh <-chan struct{}) {
