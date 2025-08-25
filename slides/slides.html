@@ -1496,18 +1496,18 @@ type ExampleTestSuite struct {
     suite.Suite
 }
 
-func (s *ExampleTestSuite) SetupAllSuite() {
+func (s *ExampleTestSuite) SetupSuite() {
     // Will run before all tests
 }
 
-func (s *ExampleTestSuite) TearDownAllSuite() {
+func (s *ExampleTestSuite) TearDownSuite() {
     // Will run after all tests
 }
 
-func (s *ExampleTestSuite) SetupTestSuite() {
+func (s *ExampleTestSuite) SetupTest() {
     // Will run before each test
 }
-func (s *ExampleTestSuite) TearDownTestSuite() {
+func (s *ExampleTestSuite) TearDownTest() {
     // Will run after each test
 }
 
