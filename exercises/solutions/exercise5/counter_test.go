@@ -55,7 +55,7 @@ func TestCounter_Inc(t *testing.T) {
 	})
 	t.Run("parallel_synctest", func(t *testing.T) {
 		// Requires go1.25+ or running with GOEXPERIMENT=synctest for go1.24
-		synctest.Run(func() {
+		synctest.Test(t, func(t *testing.T) {
 			count := 4
 
 			c := NewCounter()
@@ -114,7 +114,7 @@ func TestCounter_Dec(t *testing.T) {
 	})
 	t.Run("parallel_synctest", func(t *testing.T) {
 		// Requires go1.25+ or running with GOEXPERIMENT=synctest for go1.24
-		synctest.Run(func() {
+		synctest.Test(t, func(t *testing.T) {
 			count := 4
 
 			c := NewCounter()
@@ -175,7 +175,7 @@ func TestCounter_Reset(t *testing.T) {
 	})
 	t.Run("parallel_synctest", func(t *testing.T) {
 		// Requires go1.25+ or running with GOEXPERIMENT=synctest for go1.24
-		synctest.Run(func() {
+		synctest.Test(t, func(t *testing.T) {
 			count := 4
 
 			c := NewCounter()
@@ -238,7 +238,7 @@ func TestCounter_Value(t *testing.T) {
 	})
 	t.Run("parallel_synctest", func(t *testing.T) {
 		// Requires go1.25+ or running with GOEXPERIMENT=synctest for go1.24
-		synctest.Run(func() {
+		synctest.Test(t, func(t *testing.T) {
 			count := 4
 
 			c := NewCounter()

@@ -5,8 +5,26 @@ import (
 	"errors"
 	"fmt"
 
-	"solution4/repository"
+	"exercise4/repository"
 )
+
+//1. Extract Interface
+//
+//Create an interface for the db connection functionality
+//Update service.UserService to use the interface instead of concrete type
+//
+//2. Create fake implementation and generate mock
+//
+//Create a fake implementation of the user repository interface
+//Generate a mock implementation of the user repository interface using uber-go/mock
+//Both implementations should:
+//  Allow consumer to create new User
+//  Allow consumer to get User by email
+//
+//3. Write Tests
+//
+//Test successful user creation
+//Test error handling and invalid input handling
 
 var (
 	DBError = errors.New("db error")

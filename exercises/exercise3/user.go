@@ -6,6 +6,25 @@ import (
 	"time"
 )
 
+//1. Run the coverage analysis:
+//
+//go test -coverprofile=coverage.out ./...
+//go tool cover -func=coverage.out
+//go tool cover -html=coverage.out
+//
+//2. Identify untested code paths:
+//
+//Which methods need more test coverage?
+//What edge cases are missing?
+//Are there error conditions not being tested?
+//
+//3. Improve the test coverage:
+//
+//Add tests for Update and Delete methods
+//Add tests for error conditions
+//Test edge cases (empty values, invalid inputs)
+//Use table-driven tests where appropriate
+
 type User struct {
 	ID        int
 	Email     string

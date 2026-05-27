@@ -4,6 +4,26 @@ import (
 	"strings"
 )
 
+//Create a table test for an email validator with these requirements:
+//
+//Valid email formats:
+//- user@domain.com
+//- user.name@domain.com
+//- user+tag@domain.com
+//- user.name+tag@domain.com
+//
+//Invalid cases:
+//- Missing @
+//- Missing domain
+//- Missing name
+//- Multiple @
+//- Invalid characters
+//
+//Tasks:
+//1. Write table-driven or structured tests
+//2. Create helper functions
+//3. Add error messages
+
 const allowedCharacters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!#$%&*+-/=?^_.@"
 
 func IsValidEmail(email string) bool {

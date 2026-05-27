@@ -1,0 +1,1647 @@
+---
+title: Go Testing
+level:
+tags: []
+created_at: 2026-04-22 11-17-13
+modified_at: 2026-05-25 10-44-02
+center:
+highlightTheme: monokai
+---
+
+<style>
+li,p {
+	font-size: 20px;
+}
+
+p {
+	margin-top: 8px !important;
+	margin-bottom: 8px !important;
+}
+
+pre > code {
+    font-size: 16px;
+    line-height: normal;
+}
+
+code {
+	font-size: 16px;
+	font-style: italic;
+	background-color: #3f3f3f;
+	padding: 0;
+	max-height: 600px !important;
+}
+
+/* left-align all content in Slides */
+.slide-title {
+    background-color: #343434 ;
+    border: 1px solid coral;
+}
+
+section > div > h3 {
+	position: absolute !important;
+	top: 0 !important;
+	margin-left: auto !important;
+	margin-right: auto !important;
+	left: 0 !important;
+	right: 0 !important;
+	text-align: left !important;
+}
+
+section > div > h4 {
+	position: absolute !important;
+	top: 80px !important;
+	margin-left: auto !important;
+	margin-right: auto !important;
+	left: 0 !important;
+	right: 0 !important;
+	text-align: left !important;
+
+	font-size: 32px !important;
+}
+
+section > div {
+	align-items: left !important;
+	justify-content: center !important;
+	text-align: left !important;
+}
+
+/* If it is a title slide */
+section > div:has(h1) {
+	align-items: center !important;
+	justify-content: center !important;
+	text-align: center !important;
+	font-size: 64px !important;
+}
+</style>
+
+
+# Go Testing
+
+---
+
+### Agenda
+
+1. Testing fundamentals
+2. Test structure
+3. Test Organization and Coverage
+4. Mocks and Dependency Isolation
+5. Benchmarking and Concurrency
+6. Frameworks and Best Practices
+
+---
+
+### Why Test?
+
+- Catch bugs early
+  - Find issues before they reach production
+  - Reduce debugging time
+  - Lower cost of fixes
+- Document code behavior
+  - Tests serve as living documentation
+  - Show expected usage patterns
+  - Help new team members understand the code
+- Enable safe refactoring
+  - Confidence in changes
+  - Quick feedback on breaking changes
+  - Maintain backward compatibility
+- Improve code design
+  - Forces modular thinking
+  - Highlights dependency issues
+  - Encourages clean interfaces
+
+---
+
+### Part 1: Fundamentals
+
+- Go has a built-in testing framework `go test`.
+- Test files must end with `_test.go`
+- Test functions must start with `Test*` and have the same signature 
+
+```go []
+func TestSomething(t *testing.T) {}
+```
+
+
+--
+
+### go test
+
+```[]
+go test -v            // runs tests in verbose mode
+go test ./...         // runs all tests in the current directory and all subdirectories
+go test ./module/...  // runs all tests in `module` and its subdirectories
+go test -run Add      // runs all tests that contain the string `Add` in their name
+go test -count=1      // disable test caching
+```
+
+--
+
+### testing.T
+
+- [Documentation](https://pkg.go.dev/testing)
+- Provides a number of methods for managing tests
+
+```go []
+func TestUserValidation(t *testing.T) {
+    user := User{ Email: "invalid-email", Age: 15}
+
+    err := user.Validate()
+    if err == nil {
+        t.Error("expected validation error for invalid email")
+    }
+
+    if !strings.Contains(err.Error(), "email") {
+        t.Errorf("expected error about email, got: %v", err)
+    }
+}
+```
+
+--
+
+### testing.T - logs
+
+`t.Log` - prints a message<br>
+`t.Error` - prints an error message and fails the test<br>
+`t.Fatal` - prints an error message and stops the test run<br>
+
+
+Functions also have a `f` variant that accepts format strings and arguments
+
+```go []
+func TestAdd(t *testing.T) {
+    t.Logf("Add(1, 2) = %d", Add(1, 2))
+    t.Error("Error message")
+    t.Fatal("Fatal message")
+    t.Log("Will not be printed")
+}
+=== RUN   TestAdd
+    struct_test.go:33: Add(1, 2) = 3
+    struct_test.go:34: Error message
+    struct_test.go:35: Fatal message
+--- FAIL: TestAdd (0.00s)
+```
+
+--
+
+### testing.T - flow control
+
+`t.Run` - runs a subtest<br>
+`t.Skip` - logs a message and then stops the test run<br>
+`t.SkipNow` - same, without a message<br>
+`t.Fail` - fails the test<br>
+`t.FailNow` - fails the test and stops the test run
+
+```go []
+func TestAdd(t *testing.T) {
+    t.Run("ok", func(t *testing.T) { 
+	    t.Log("ok") 
+	}
+    t.Run("skip", func(t *testing.T) { 
+	    t.Skip("skipped") 
+	}
+}
+=== RUN   TestAdd
+=== RUN   TestAdd/ok
+    struct_test.go:34: ok
+--- PASS: TestAdd/ok (0.00s)
+=== RUN   TestAdd/skip
+    struct_test.go:37: skipped
+--- SKIP: TestAdd/skip (0.00s)
+```
+
+--
+### testing.T - advanced
+
+`t.Helper` - marks a function as a helper function<br>
+`t.Context` - returns a context that will cancel just before cleanup function<br>
+`t.Cleanup` - registers a function that will be called after the test<br>
+`t.TempDir` - creates a temporary directory that will be removed after the test<br>
+`t.Parallel` - runs the test in parallel with other tests<br>
+
+```go []
+func helper(t *testing.T) {
+	t.Helper()
+	t.Fatal("Fail in helper")
+ }
+ 
+func noHelper(t *testing.T) {
+	t.Fatal("Fail in noHelper")
+}
+
+func Test(t *testing.T) {
+	t.Run("helper", func(t *testing.T) { helper(t) })
+	t.Run("nohelper", func(t *testing.T) { noHelper(t) })
+}
+
+=== RUN   Test/helper
+    main_test.go:11: Fail in helper
+=== RUN   Test/nohelper
+    main_test.go:7: Fail in noHelper
+```
+
+--
+
+### Exercise 1: Calculator
+
+In `exercise1` you will find a calculator structure with `Add` function.<br>
+Add following functions in accordance to TDD principles:
+- Sub(a, b float64) float64 - subtracts b from a
+- Div(a, b float64) (float64, error) - divides a by b
+<br><br>
+1. Write tests for all methods (they should fail)
+2. Implement the functions
+3.  Run tests to verify implementation
+4. Refactor if needed
+
+--
+
+### Common Testing Mistakes
+#### Testing implementation instead of behavior
+
+```go []
+// Bad
+func TestUserService_CreateUser(t *testing.T) {
+    service := NewUserService()
+    user := User{Name: "John"}
+
+    service.CreateUser(user)
+
+    // Testing implementation details
+    if service.userValidator.validateNameCalls != 1 {
+        t.Error("should call name validator exactly once")
+    }
+}
+```
+
+--
+
+### Common Testing Mistakes
+#### Testing implementation instead of behavior
+
+```go []
+// Better
+func TestUserService_CreateUser(t *testing.T) {
+    service := NewUserService()
+    user := User{Name: "John"}
+
+    // Testing behavior/outcome
+    result, err := service.CreateUser(user)
+    if err != nil {
+        t.Errorf("expected no error, got %v", err)
+    }
+    if result.Name != "John" {
+        t.Errorf("expected name 'John', got %s", result.Name)
+    }
+
+}
+```
+
+Focus on testing what the code does (its behavior/output) rather than how it does it (implementation details).
+
+Implementation details can change without affecting the behavior, and testing them makes tests fragile.
+
+--
+
+### Common Testing Mistakes
+#### Brittle Tests (Too Specific)
+
+
+```go
+// Bad
+func TestGenerateReport(t *testing.T) {
+    report := GenerateReport()
+
+    // Too specific, will break if format changes slightly
+    expected := "Report generated on 2025-07-16 14:30:00\nTotal items: 5\n"
+    if report != expected {
+        t.Errorf("got %q, want %q", report, expected)
+    }
+}
+```
+
+--
+
+### Common Testing Mistakes
+#### Brittle Tests (Too Specific)
+
+```go
+// Better
+func TestGenerateReport(t *testing.T) {
+    report := GenerateReport()
+
+    // Tests important aspects without being too rigid
+    if !strings.Contains(report, "Total items:") {
+        t.Error("report should contain item count")
+    }
+    if !strings.Contains(report, "Report generated on") {
+        t.Error("report should contain generation timestamp")
+    }
+}
+```
+
+Avoid writing tests that are unnecessarily strict about exact formats or implementation details.
+
+Tests should be resilient to minor, non-functional changes.
+
+--
+
+### Common Testing Mistakes
+#### Missing edge cases
+
+```go []
+// Bad
+func TestDiv(t *testing.T) {
+    // Only testing the happy path
+    result := Div(10, 2)
+    if result != 5 {
+        t.Errorf("expected 5, got %v", result)
+    }
+}
+```
+
+--
+
+### Common Testing Mistakes
+#### Missing edge cases
+
+```go []
+// Better
+func TestDiv(t *testing.T) {
+    tests := []struct {
+        name     string
+        a, b     float64
+        want     float64
+        wantErr  bool
+    }{
+        {"normal division", 10, 2, 5, false},
+        {"zero division", 1, 0, 0, true},
+        {"negative numbers", -10, -2, 5, false},
+        {"very large numbers", 1e308, 2, 5e307, false},
+    }
+    // ... test implementation
+}
+```
+
+Always consider boundary conditions, special cases, and error scenarios. Missing edge cases can lead to production bugs.
+
+--
+
+### Common Testing Mistakes
+#### Non-descriptive error messages
+
+```go []
+// Bad
+func TestValidateEmail(t *testing.T) {
+    if !ValidateEmail("test@example.com") {
+        t.Error("test failed") // Unclear what went wrong
+    }
+}
+```
+
+--
+
+### Common Testing Mistakes
+#### Non-descriptive error messages
+
+```go []
+// Better
+func TestValidateEmail(t *testing.T) {
+    email := "test@example.com"
+    if !ValidateEmail(email) {
+        t.Errorf("ValidateEmail(%q) = false; want true", email)
+    }
+}
+```
+
+Error messages should clearly indicate what went wrong, what was expected, and what actually happened. This helps tremendously when debugging test failures.
+
+--
+
+### Common Testing Mistakes
+#### Testing multiple things in one test
+
+```go []
+// Bad
+func TestUser(t *testing.T) {
+    user := NewUser("John", "john@example.com", 25)
+
+    // Testing multiple unrelated things
+    if !user.IsValid() {
+        t.Error("user should be valid")
+    }
+    if user.CanDrive() {
+        t.Error("user shouldn't be able to drive")
+    }
+    if user.GetFullName() != "John Doe" {
+        t.Error("incorrect full name")
+    }
+}
+```
+
+--
+
+### Common Testing Mistakes
+#### Testing multiple things in one test
+
+```go []
+// Better
+func TestUser_Validation(t *testing.T) {
+    user := NewUser("John", "john@example.com", 25)
+    if !user.IsValid() {
+        t.Error("user should be valid")
+    }
+}
+
+func TestUser_DrivingPrivileges(t *testing.T) {
+    user := NewUser("John", "john@example.com", 15)
+    if user.CanDrive() {
+        t.Error("user under 16 shouldn't be able to drive")
+    }
+}
+
+func TestUser_FullName(t *testing.T) {
+    user := NewUser("John", "john@example.com", 25)
+    if user.GetFullName() != "John Doe" {
+        t.Errorf("got %q, want 'John Doe'", user.GetFullName())
+    }
+}
+```
+
+Each test should verify one logical concept.
+
+--
+
+### Testing Best Practices
+
+- One logical assertion per test
+- Use meaningful test names
+- Follow the AAA pattern:
+  - Arrange (setup)
+  - Act (execute)
+  - Assert (verify)
+- Keep tests simple and readable
+
+---
+
+### Part 2: Test Structure
+
+In this section:
+- Test Helper Functions
+- Table-Driven Tests
+- Structured Tests with t.Run
+- Best Practices
+
+--
+
+### Test Helper Functions
+
+- Improve test readability
+- Consistent error reporting
+- Reusable test utilities
+
+```go []
+func assertUserValid(t *testing.T, user User) {
+    t.Helper() // Marks the function as a helper function
+    if user.Email == "" {
+        t.Error("email is empty")
+    }
+    if user.Age < 18 {
+        t.Error("user is too young")
+    }
+}
+
+func TestUser_Get(t *testing.T) {
+    srv := NewUserService()
+    user := srv.Get(1)
+    assertUserValid(t, user)
+}
+
+func TestUser_Get(t *testing.T) {
+    users := srv.List()
+    for _, user := range users {
+        assertUserValid(t, user)
+    }
+}
+```
+
+--
+### Table-Driven Tests
+
+```go []
+func TestAbs(t *testing.T) {
+    tests := []struct {
+        name     string
+        input    int
+        want     int
+    }{
+        {
+            name:    "positive",
+            input:   1, want:    1,
+        }, {
+            name:    "zero",
+            input:   0, want:    0,
+        }, {
+            name:    "negative",
+            input:   -1, want:    1,
+        },
+    }
+    for _, tt := range tests {
+        t.Run(tt.name, func(t *testing.T) {
+            got := Abs(tt.input)
+            if got != tt.want {
+                t.Errorf("Abs(%d) = %d, want %d", tt.input, got, tt.want)
+            }
+        })
+    }
+}
+```
+
+--
+### Table-Driven Tests
+
+```go []
+// Example: map instead of array
+func TestCalculate(t *testing.T) {
+    tests := map[string]struct {
+        input    string
+        want     int
+        wantErr  bool
+    }{
+        "two_numbers": {
+            input:   "1,2", want:    3,
+            wantErr: false,
+        },
+        "invalid_input": {
+            input:   "1,a", want:    0,
+            wantErr: true,
+        },
+    }
+    for name, tt := range tests {
+        t.Run(name, func(t *testing.T) {
+            got, err := Calculate(tt.input)
+            if (err != nil) != tt.wantErr {
+                t.Fatalf("Calculate() error = %v, wantErr %v", err, tt.wantErr)
+            }
+            if got != tt.want {
+                t.Fatalf("Calculate() = %v, want %v", got, tt.want)
+            }
+        })
+    }
+}
+```
+
+--
+### Table-Driven Tests
+
+#### Why Use Table-Driven Tests?
+
+- Test multiple scenarios efficiently
+- Consistent test structure
+- Easy to add new test cases
+- Clear overview of test coverage
+
+--
+
+### Traditional vs Table-Driven
+
+Traditional:
+```go []
+func TestAbs_Positive(t *testing.T) { ... }
+func TestAbs_Negative(t *testing.T) { ... }
+func TestAbs_Zero(t *testing.T) { ... }
+```
+
+Table-Driven:
+```go []
+func TestAbs(t *testing.T) {
+    tests := []struct{ ... }
+    for _, tt := range tests {
+        t.Run(tt.name, func(t *testing.T) { ... })
+    }
+}
+```
+
+--
+
+### Table-Driven Tests - Best Practice
+
+- Use descriptive test case names
+- Keep test cases sorted logically
+- Include edge cases
+- Use consistent structure
+- Consider using subtests (t.Run) for more complex scenarios
+
+--
+### Structured Tests with t.Run
+
+Benefits:
+- Organize related tests
+- Run specific subtests
+- Better test output
+- Parallel execution support
+
+```go []
+func TestUserService_Create(t *testing.T) {
+    // Common setup
+    service := NewUserService()
+
+    // Grouped tests
+    t.Run("ok", func(t *testing.T) {
+        t.Run("ok_1", func(t *testing.T) {})
+
+        t.Run("ok_2", func(t *testing.T) {})
+    })
+
+    t.Run("error", func(t *testing.T) {
+        t.Run("no_email", func(t *testing.T) {})
+
+        t.Run("too_young", func(t *testing.T) {})
+    })
+}
+```
+
+--
+
+### Structured Tests
+#### Setup / Teardown
+
+```go []
+func TestDatabase(t *testing.T) {
+    // Common setup
+    db := setupTestDB(t)
+    t.Cleanup(func() { db.Close() })
+
+    t.Run("insert", func(t *testing.T) {
+        // Test-specific setup
+        user := createTestUser(t)
+
+        // Test logic
+        err := db.Insert(user)
+        if err != nil {
+            t.Errorf("failed to insert: %v", err)
+        }
+    })
+}
+```
+
+--
+
+### Choosing Test Structure
+
+Table-Driven Tests:
+- Simple, repetitive test cases
+- Same setup for all cases
+- Testing different inputs/outputs
+
+<br><br>
+
+Structured Tests:
+- Complex setup/teardown
+- Different setup per test
+- Testing different behaviors
+
+--
+
+### Exercise 2: Email Validator
+
+Create a table test for an email validator with these requirements:
+
+1. Valid email formats:
+   - user@domain.com
+   - user.name@domain.com
+   - user+tag@domain.com
+   - user.name+tag@domain.com
+
+2. Invalid cases:
+   - Missing @
+   - Missing domain
+   - Missing name
+   - Multiple @
+   - Invalid characters
+
+Tasks:
+1. Write table-driven or structured tests
+2. Create helper functions
+3. Add error messages
+
+---
+
+### Part 3: Organization and Coverage
+
+In this section:
+- Test Package Organization
+- Code Coverage Tools
+- Coverage Analysis
+- Test Refactoring Techniques
+
+--
+
+### Test Package Organization
+
+#### Internal vs External Tests
+
+1. Same package (internal): `package mypackage`
+   - Access to unexported identifiers
+   - Testing implementation details
+   - Unit tests of internal behavior
+
+2. Separate package (external): `package mypackage_test`
+   - Only access to exported identifiers
+   - Testing public API
+   - Integration tests
+
+--
+
+### Test File Organization
+
+Common patterns:
+1. One test file per source file
+   - `user.go` → `user_test.go`
+   - Clear mapping between source and tests
+
+2. Feature-based organization
+   - `user_creation_test.go`
+   - `user_validation_test.go`
+   - Better for complex features
+
+3. Test type separation
+   - `user_unit_test.go`
+   - `user_integration_test.go`
+
+--
+
+### Code coverage
+
+`go test -cover` - runs tests and shows coverage<br>
+`go test -coverprofile=coverage.out` - runs tests and saves coverage to a file<br>
+`go tool cover -func=coverage.out` - shows coverage summary<br>
+`go tool cover -html=coverage.out -o coverage.html` - shows coverage in a browser<br>
+
+--
+
+### Coverage HTML View (example)
+
+![drawing_coverage](coverage.png)
+
+- Green: Covered lines
+- Red: Uncovered lines
+- Gray: Non-executable lines
+    
+--
+
+### Coverage Best Practices
+
+1. Don't aim for 100%
+   - Diminishing returns
+   - Some code isn't worth testing
+   - Focus on critical paths
+
+2. Coverage Targets
+   - Business logic: 70-90%
+   - Data models: 60-70%
+   - Generated code: 0%
+
+3. Quality over Quantity
+   - Meaningful assertions
+   - Edge cases
+   - Error conditions
+
+--
+
+### Test Build Tags
+
+Go allows us to use build tags to conditionally compile code based on build tags.
+
+Use cases:
+- Separate unit and integration tests
+- Environment-specific tests
+- Long-running tests
+
+```go []
+// mock.go
+//go:build mock
+package main
+const env = "mock"
+
+// real.go
+//go:build !mock
+package main
+const env = "real"
+
+// main.go
+package main
+func main() {
+    fmt.Println(env) // "real" or "mock"
+}
+
+// Run with `go run -tags mock .`
+```
+
+
+--
+
+### Exercise 3: Coverage Analysis and Improvement
+
+1. Run the coverage analysis:
+   ```bash
+    go test -coverprofile=coverage.out ./...
+    go tool cover -func=coverage.out
+    go tool cover -html=coverage.out
+   ```
+
+2. Identify untested code paths:
+   - Which methods need more test coverage?
+   - What edge cases are missing?
+   - Are there error conditions not being tested?
+
+3. Improve the test coverage:
+   - Add tests for Update and Delete methods
+   - Add tests for error conditions
+   - Test edge cases (empty values, invalid inputs)
+   - Use table-driven tests where appropriate
+
+--
+
+### Common Coverage Pitfalls
+
+1. Coverage != Quality
+```go []
+func TestAdd(t *testing.T) {
+	Add(1, 2) // 100% coverage, no assertions!
+}
+```
+
+2. Missing Error Paths
+```go []
+// Only testing success path
+result, _ := Process(input)
+if result != expected {
+	t.Error("wrong result")
+}
+```
+
+3. Focusing on Numbers
+   - High coverage with weak assertions
+   - Missing edge cases
+   - No negative tests
+
+---
+
+### Part 4: Mocks and Dependency Isolation
+
+In this section:
+- Interfaces for testability
+- Manual mocking vs. mocking frameworks
+
+--
+
+### Types of Mocks
+
+- Mock
+    - Objects with predefined behavior that register calls they receive.
+    - Used to verify how code interacts with dependencies, focusing on behavior rather than output.
+- Stub
+    - Objects that return predefined values without expecting specific calls.
+    - Used to provide necessary data for tests, often returning fixed responses.
+- Fake
+    - Objects with working implementations that take shortcuts for performance.
+    - Used to simulate real objects, often for testing interactions with external services.
+
+--
+
+### Interfaces
+
+In Golang we can use interfaces to define expected behaviour
+
+```go []
+type Reader interface {
+    Read(p []byte) (n int, err error)
+}
+
+func ReadAll(reader Reader) (out []byte, err error) {
+    var (
+        n int
+        buffer := make([]byte, 1024)
+    )
+    for err == nil {
+        n, err = reader.Read(buffer)
+        // ...
+    }
+}
+```
+
+--
+
+### Interfaces - Good Practices
+
+- Accept interfaces, return concrete types
+- Use minimal interfaces
+- Prefer composition over adding methods
+- Declare them where they are used
+- Design based on purpose, not implementation
+
+--
+
+
+
+### Manual Mocking - function fields
+
+```go []
+// Interface
+type Reader interface {
+    Read(p []byte) (n int, err error)
+}
+
+// Mock
+type Mock struct {
+    ReaderFn func([]byte) (int, error)
+}
+
+func (m Mock) Read(p []byte) (int, error) {
+    return m.ReaderFn(p)
+}
+
+// Test
+func TestReader(t *testing.T) {
+    mock := Mock{
+        ReaderFn: func(_ []byte) (int, error) {
+            return 0, errors.New("fail")
+        }
+    }
+}
+```
+
+This method allows us to easily specify expected behavior for each test.
+
+--
+
+### Generated Mocks - [gomock](https://github.com/uber-go/mock)
+
+Adds a command to generate mocks based on interfaces.
+
+In command line:
+```
+mockgen -destination=mocks/clients.gen.go -source=service.go -package=mocks . S3Client
+```
+
+In code:
+```go []
+//go:generate mockgen -destination=mocks/clients.gen.go -package=mocks . S3Client
+```
+And run `go generate`.
+
+Will generate a structure implementing each function in the interface.
+
+--
+
+### Generated Mocks - [gomock](https://github.com/uber-go/mock)
+
+```go []
+func TestCountBytes_GoMock(t *testing.T) {
+    t.Run("ok", func(t *testing.T) {
+        ctrl := gomock.NewController(t)
+
+        reader := NewMockReader(ctrl)
+
+        reader.EXPECT().Read(gomock.Any()).Return(1, nil).Times(2)
+        reader.EXPECT().Read(gomock.Any()).Return(0, io.EOF).Times(1)
+
+        // Same expectations are processed in order, so this would have
+        // to be called after function got `io.EOF` and finished.
+        // Uncommenting this line would cause the test to fail with
+        // `Unmet Expectation` error.
+        //reader.EXPECT().Read(gomock.Any()).Return(1, nil)
+
+        got, err := CountBytes(reader)
+        if err != nil {
+            t.Errorf("CountBytes() error = %v, want nil", err)
+        }
+        if got != 2 {
+            t.Errorf("CountBytes() got = %v, want %v", got, 2)
+        }
+})
+```
+
+--
+
+### Choosing Mocking Approach
+
+1. Manual Mocks
+   - Simple interfaces (1-2 methods)
+   - Need flexible behavior per test
+   - Want explicit control
+
+2. Generated Mocks (gomock)
+   - Complex interfaces
+   - Need strict verification
+   - Working with legacy code
+
+1. Function Fields
+   - Need different behavior per test
+   - Simple dependencies
+   - Testing callbacks/handlers
+
+--
+
+### Mocking http
+
+Golang provides `httptest` library for creating fake http servers and requests for testing.
+
+For servers:
+- `httptest.NewRequest` for mocking request
+- `httptest.ResponseRecorder` to check response body and status code.
+
+For clients:
+- `httptest.NewServer` to create mock servers
+- `mock.URL` and `mock.Client` for connecting
+
+--
+
+### Mocking http - server
+
+```go []
+srv := &Server{}
+
+requestBody := []byte("123")
+responseRecorder := httptest.NewRecorder()
+request := httptest.NewRequest(http.MethodGet, "/", bytes.NewReader(requestBody))
+
+srv.ServeHTTP(responseRecorder, request)
+
+if responseRecorder.Code != http.StatusOK {
+    t.Fatalf("expected 200, got `%d`", responseRecorder.Code)
+}
+if responseRecorder.Body.String() != "3" {
+    t.Fatalf("expected `3`, got `%s`", responseRecorder.Body.String())
+}
+```
+
+--
+
+### Mocking http - client
+
+```go []
+expected := "Hello, world!"
+handlerFn := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+    w.WriteHeader(http.StatusOK)
+    w.Write([]byte(expected))
+})
+
+srv := httptest.NewServer(handlerFn)
+defer srv.Close()
+
+client := srv.Client()
+resp, _ := client.Get(srv.URL)
+defer resp.Body.Close()
+
+if resp.StatusCode != http.StatusOK {
+    t.Errorf("got status %d, want %d", resp.StatusCode, http.StatusOK)
+}
+
+body, _ := io.ReadAll(resp.Body)
+if string(body) != expected {
+    t.Errorf("got body %q, want %q", string(body), expected)
+}
+```
+
+--
+
+### Exercise 4: Mocking External Dependencies
+
+1. Extract Interface
+   - Create an interface for the db connection functionality
+   - Update `service.UserService` to use the interface instead of concrete type
+
+2. Create fake implementation and generate mock
+   - Create a fake implementation of the user repository interface
+   - Generate a mock implementation of the user repository interface using uber-go/mock
+   - Both implementations should:
+     - Allow consumer to create new User
+     - Allow consumer to get User by email
+
+3. Write Tests
+   - Test successful user creation
+   - Test error handling and invalid input handling
+
+---
+
+### Part 5: Benchmarking and Concurrency
+
+In this section:
+- Writing performance benchmarks with BenchmarkXxx
+- Testing concurrent code (data races, -race flag, testing/synctest)
+- Creating mock containers for integration tests.
+
+--
+
+### Why benchmark?
+
+- Performance Optimization
+    - Identify bottlenecks
+    - Compare implementations
+    - Validate optimizations
+    - Set performance baselines
+
+
+- System Design
+    - Capacity planning
+    - Performance budgets
+    - Scaling decisions
+
+--
+
+### Benchmarking in Go
+
+Similar to testing we have tools for benchmarking your code.
+
+`go test -bench .` - runs benchmarks<br>
+`go test -benchmem` - runs benchmarks and shows memory usage<br>
+`go test -benchtime 10s` - runs benchmarks for 10 seconds<br>
+
+Benchmark functions must start with `Benchmark` and receive `*testing.B`
+
+```go []
+func BenchmarkFunction(b *testing.B) {}
+func BenchmarkStruct_Method(b *testing.B) {}
+```
+
+--
+
+### testing.B
+
+- [Documentation](https://pkg.go.dev/testing)
+- Provides a number of methods for managing benchmarks.
+- We have access to the same functions for logs and structured benchmarking as in `testing.T`
+
+```go []
+// New format go1.24
+func BenchmarkRandInt(b *testing.B) {
+    expensiveSetup()
+
+    for b.Loop() {
+        benchmarkedLogic()
+    }
+}
+
+// Old format go1.23 and before
+func BenchmarkRandInt(b *testing.B) {
+    expensiveSetup()
+
+    // If setup was required you should reset the timer
+    b.ResetTimer()
+    for range b.N {
+        benchmarkedLogic()
+    }
+}
+```
+
+--
+
+### Benchmark report
+
+```go []
+func BenchmarkRandInt(b *testing.B) {
+    for b.Loop() {
+        rand.Int()
+    }
+}
+```
+```
+go test -v -bench .
+
+goos: linux
+goarch: amd64
+pkg: benchmarking
+cpu: 12th Gen Intel(R) Core(TM) i7-12700
+BenchmarkRandInt
+BenchmarkRandInt-20     198654988                6.034 ns/op
+PASS
+ok      benchmarking    1.201s
+```
+
+Means that the body of the loop ran 198654988 times at a speed of 6.034 ns per loop.
+
+--
+
+### Testing for data races
+
+`go test -race` - runs tests with race detector
+
+```go []
+func Race() {
+    ch := make(chan bool)
+    data := map[string]int{}
+
+    go func() {
+        data["0"] = 1
+        ch <- true
+    }()
+    data["0"] = 2
+    <-ch
+}
+```
+
+`go test -count=1 .` - Will pass as it does not detect a data race issue
+<!-- element class="fragment" data-fragment-index="2" -->
+
+`go test -count=1 -race .` - Will fail
+<!-- element class="fragment" data-fragment-index="2" -->
+
+--
+
+### Testing concurrent code
+#### problem
+
+Let's consider following code:
+```go []
+func TestAfterFunc(t *testing.T) {
+    ctx, cancel := context.WithCancel(context.Background())
+
+    calledCh := make(chan struct{}) // closed when AfterFunc is called
+    context.AfterFunc(ctx, func() {
+        close(calledCh)
+    })
+
+    // TODO: Assert that the AfterFunc has not been called.
+
+    cancel()
+
+    // TODO: Assert that the AfterFunc has been called.
+}
+```
+
+How can we test that `AfterFunc` will not be called until `cancel()`?
+
+--
+
+### Testing concurrent code
+#### partial solution
+
+```go []
+// funcCalled reports whether the function was called.
+funcCalled := func() bool {
+    select {
+    case <-calledCh:
+        return true
+    case <-time.After(10 * time.Millisecond):
+        return false
+    }
+}
+
+if funcCalled() {
+    t.Fatalf("AfterFunc function called before context is canceled")
+}
+
+cancel()
+
+if !funcCalled() {
+    t.Fatalf("AfterFunc function not called after context is canceled")
+}
+```
+
+- slow:  10 milliseconds isn’t a lot of time, but it adds up over many tests.
+- flaky: can fail on overloaded CI systems
+
+
+--
+
+### Testing concurrent code
+#### new way
+
+go1.24 introduced new experimental package `testing/synctest` - [More Info](https://go.dev/blog/synctest).
+
+```go []
+func TestAfterFunc(t *testing.T) {
+    synctest.Run(func() {
+        ctx, cancel := context.WithCancel(context.Background())
+        funcCalled := false
+        context.AfterFunc(ctx, func() {
+            funcCalled = true
+        })
+
+        // Will wait for every goroutine to block before continuing.
+        synctest.Wait()
+        if funcCalled {
+            t.Fatalf("AfterFunc function called before context is canceled")
+        }
+
+        cancel()
+
+        synctest.Wait()
+        if !funcCalled {
+            t.Fatalf("AfterFunc function not called after context is canceled")
+        }
+})}
+```
+
+--
+
+### Testing time
+#### new way
+
+Additionally withing `synctest.Run` we are using a fake clock which advances only when all goroutines are blocked.
+```go []
+func TestWithTimeout(t *testing.T) {
+    synctest.Run(func() {
+        const timeout = 5 * time.Second
+        ctx, cancel := context.WithTimeout(context.Background(), timeout)
+        defer cancel()
+
+        // Wait just less than the timeout.
+        time.Sleep(timeout - time.Nanosecond)
+        synctest.Wait()
+        if err := ctx.Err(); err != nil {
+            t.Fatalf("before timeout, ctx.Err() = %v; want nil", err)
+        }
+
+        // Wait the rest of the way until the timeout.
+        time.Sleep(time.Nanosecond)
+        synctest.Wait()
+        if err := ctx.Err(); err != context.DeadlineExceeded {
+            t.Fatalf("after timeout, ctx.Err() = %v; want DeadlineExceeded", err)
+        }
+    })
+}
+```
+
+--
+
+### Exercise 5: Simple Concurrent Counter
+
+Create and test a thread-safe counter with the following requirements:
+
+1. Implement a `Counter` struct with following methods:
+   - `Increment() int` - adds 1 and returns new value
+   - `Decrement() int` - subtracts 1 and returns new value
+   - `Get() int` - returns current value
+   - `Reset()` - sets value back to 0
+
+2. Write tests that verify:
+   - Basic operations work correctly
+   - Counter works correctly when called from multiple goroutines
+   - Test using the race detector
+
+
+Tips:
+- Use `sync.WaitGroup` to wait for goroutines in test (we'll provide example)
+- Start with basic tests before adding concurrent ones
+- Use `sync.Mutex` to protect shared state
+
+---
+
+### Part 6: Frameworks and Best Practices
+
+In this section:
+- testify for expressive assertions
+- Setup / teardown strategies
+- Golden files and snapshots
+
+--
+
+### stretchr/testify
+
+- [Documentation](https://github.com/stretchr/testify)
+- Provides a number modules to simplify testing
+- `assert` functions return a boolean whether the check was successful
+    - Use when you want to collect multiple failures
+- `require` functions will immediately fail the test
+    - Use when further test execution makes no sense
+- `mock` provides mechanisms simplifying writing manual mocks
+- `suite` provides mechanisms for making test suites
+
+--
+
+### testify assertions
+
+```go []
+func TestUserValidation(t *testing.T) {
+    user := User{ Email: "invalid-email", Age: 15}
+
+    err := user.Validate()
+    if err == nil {
+        t.Error("expected validation error for invalid email")
+    }
+
+    if !errors.Is(err, InvalidEmailError) {
+        t.Errorf("expected error about email, got: %v", err)
+    }
+}
+
+func TestUserValidationAsserts(t *testing.T) {
+    user := User{ Email: "invalid-email", Age: 15}
+
+    err := user.Validate()
+    require.ErrorIs(t, err, InvalidEmailError)
+}
+```
+
+--
+
+### testify mocks
+
+```go p[]
+type MyMockedObject struct {
+	mock.Mock
+}
+
+func (m *MyMockedObject) DoSomething(number int) (bool, error) {
+	args := m.Called(number)
+	return args.Bool(0), args.Error(1)
+}
+
+func TestSomething(t *testing.T) {
+	// create an instance of our test object
+	testObj := new(MyMockedObject)
+
+	// set up expectations
+	testObj.On("DoSomething", 123).Return(true, nil)
+
+	// call the code we are testing
+	doSomething(testObj)
+
+	// assert that the expectations were met
+	testObj.AssertExpectations(t)
+}
+```
+
+--
+
+
+### testify suites
+
+```go []
+type ExampleTestSuite struct {
+    suite.Suite
+}
+
+func (s *ExampleTestSuite) SetupSuite() {
+    // Will run before all tests
+}
+
+func (s *ExampleTestSuite) TearDownSuite() {
+    // Will run after all tests
+}
+
+func (s *ExampleTestSuite) SetupTest() {
+    // Will run before each test
+}
+func (s *ExampleTestSuite) TearDownTest() {
+    // Will run after each test
+}
+
+func (s *ExampleTestSuite) TestExample() {
+    // Each test must start with "Test"
+}
+
+func TestExampleSuite(t *testing.T) {
+    // Run entire suite
+    suite.Run(t, new(ExampleTestSuite))
+}
+```
+
+--
+
+### Test Setup
+
+1. If your tests require complex common setup use `TestMain`
+```go []
+    func TestMain(m *testing.M) {
+
+        // Setup before running tests
+        exitCode := m.Run()
+        // Teardown after running tests
+
+        os.Exit(exitCode)
+    }
+```
+2. Use helper function for setup functions inside tests
+3. Keep setup minimal and relevant
+4. Make setup failures explicit with `t.Fatal`
+
+--
+
+### Test Teardown
+
+- Use `t.Cleanup` for test-specific resources
+   - Automatically runs even if test fails
+   - Runs in reverse order of registration
+   - Works with subtests
+
+- Use `defer` for function-scope cleanup
+   - Good for simple cleanup
+   - Clear connection to setup
+
+- Clean up files and connections
+   - Remove temporary files
+   - Close network connections
+   - Release system resources
+
+--
+
+### Example
+
+```go []
+func TestUserCreate(t *testing.T) {
+    // Use helper function to setup test database connection
+    db := setupDB(t))
+
+    // Setup closing the db once test is finished
+    defer db.Close()
+
+    // Setup your structures
+    userRepo := NewUserRepo(db)
+
+    // Setup your test data
+    user := User{Email: "<EMAIL>", Age: 15}
+
+    // Cleanup your test data
+    t.Cleanup(func() {
+        // Cleanup your test data
+        userRepo.Delete(user.ID)
+    })
+
+    // Run your test
+    err := userRepo.Create(user)
+    if err != nil {
+        t.Fatal(err)
+    }
+}
+```
+
+--
+
+### Golden files
+
+> Golden files are pre-approved reference outputs that represent the "correct"
+> or expected results of a test case.
+> They serve as the baseline against which the actual output is compared.
+
+**Golden files should be used when the tested output:**
+- is large (json responses, generated files, transcoded values etc.)
+- is deterministic (either static or can be templated)
+- doesn't change very often
+
+**Avoid using golden golden files for:**
+- non-deterministic outputs (f.ex. real-time logs)
+- frequently changing requirements
+
+--
+
+
+### Golden files - maintenance
+
+When using golden files it is good practice to make your tests able to update golden files.
+
+```go []
+func TestGenerateReport(t *testing.T) {
+    report := GenerateReport()
+    goldenFile := "TestGenerateReport.golden"
+
+    if os.Getenv("UPDATE_GOLDEN") == "1" {
+        err := os.WriteFile(filepath.Join("testdata", goldenFile), report, 0644)
+        if err != nil {
+            t.Fatal(err)
+        }
+    }
+
+    expected := readGolden(t, goldenFile)
+    if diff := cmp.Diff(expected, report); diff != "" {
+        t.Errorf("Report mismatch (-want +got):\n%s", diff)
+    }
+}
+```
+
+--
+
+### Exercise 6: Test Framework Features
+
+1. Add testify to exercise6:
+   ```bash
+   # In exercise6 directory
+   go get github.com/stretchr/testify
+   ```
+
+2. Convert Calculator tests to use testify:
+   - Replace if/error checks with assert/require functions
+   - Create a test suite for calculator
+   - Add setup method that creates calculator instance
+
+3. Create a mock logger:
+   - Add Logger interface with Log(operation string) method
+   - Create mock using testify/mock
+   - Verify calculator logs operations
+
+
+---
+
+### More information
+
+[Common Go Mistakes](https://100go.co/#not-understanding-race-problems-data-races-vs-race-conditions-and-the-go-memory-model-58)
+
+[Learn Go with tests](https://github.com/quii/learn-go-with-tests)
+
+[testify - documentation](https://github.com/stretchr/testify)
+
+[Golang - synctest post](https://go.dev/blog/synctest)
+
+[Vincent Demeester - Golang testing - golden file](https://vincent.demeester.fr/posts/2017-04-22-golang-testing-golden-file/)
