@@ -1396,7 +1396,7 @@ go1.24 introduced new experimental package `testing/synctest` - [More Info](http
 
 ```go []
 func TestAfterFunc(t *testing.T) {
-    synctest.Run(func() {
+    synctest.Test(t, func(t *testing.T) {
         ctx, cancel := context.WithCancel(context.Background())
         funcCalled := false
         context.AfterFunc(ctx, func() {
@@ -1423,10 +1423,10 @@ func TestAfterFunc(t *testing.T) {
 ### Testing time
 #### new way
 
-Additionally withing `synctest.Run` we are using a fake clock which advances only when all goroutines are blocked.
+Additionally withing `synctest.Test` we are using a fake clock which advances only when all goroutines are blocked.
 ```go []
 func TestWithTimeout(t *testing.T) {
-    synctest.Run(func() {
+    synctest.Test(t, func(t *testing.T) {
         const timeout = 5 * time.Second
         ctx, cancel := context.WithTimeout(context.Background(), timeout)
         defer cancel()

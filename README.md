@@ -46,3 +46,7 @@ By the end of the training, participants will:
 - Know how to use tools like `testify`, `go test`, and code coverage utilities effectively
 - Be familiar with Go testing patterns and performance testing (edited)
 
+# Contributions
+
+Michał Parzych (mmich-pl) - redesign of exercise 4.
+
